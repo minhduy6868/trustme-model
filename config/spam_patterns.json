@@ -1,0 +1,198 @@
+{
+  "vietnamese": {
+    "clickbait_phrases": [
+      "giật gân",
+      "sốc nặng",
+      "cực sốc",
+      "gây sốt",
+      "rần rần",
+      "nóng hổi",
+      "bạn sẽ không tin",
+      "ai cũng phải choáng",
+      "không ai ngờ",
+      "chưa từng có",
+      "bí mật được tiết lộ",
+      "sự thật khủng khiếp",
+      "độc quyền",
+      "100% chính xác",
+      "cam kết",
+      "đảm bảo",
+      "nhanh tay kẻo lỡ",
+      "click ngay",
+      "xem ngay",
+      "chia sẻ ngay",
+      "bùng nổ",
+      "khủng khiếp",
+      "hot nhất",
+      "nổi da gà"
+    ],
+    "fake_indicators": [
+      "tin đồn",
+      "nghe nói",
+      "có người cho biết",
+      "theo nguồn tin",
+      "chưa được xác nhận",
+      "được cho là",
+      "ẩn danh tiết lộ",
+      "nguồn tin mật"
+    ],
+    "emotional_words": [
+      "phẫn nộ",
+      "tức giận",
+      "căm ghét",
+      "kinh hoàng",
+      "khủng khiếp",
+      "đáng sợ",
+      "rợn người"
+    ]
+  },
+  "english": {
+    "clickbait_phrases": [
+      "you won't believe",
+      "shocking",
+      "mind-blowing",
+      "must see",
+      "click here",
+      "breaking news",
+      "exclusive",
+      "leaked",
+      "doctors hate",
+      "this one trick",
+      "what happened next",
+      "the truth about",
+      "exposed",
+      "revealed",
+      "secret",
+      "never seen before",
+      "going viral",
+      "everyone is talking"
+    ],
+    "fake_indicators": [
+      "rumor has it",
+      "allegedly",
+      "sources say",
+      "unconfirmed reports",
+      "insider claims",
+      "anonymous source"
+    ],
+    "emotional_words": [
+      "outrageous",
+      "disgusting",
+      "horrifying",
+      "terrifying",
+      "shocking",
+      "unbelievable"
+    ]
+  },
+  "trusted_domains": {
+    "vietnamese": [
+      "vnexpress.net",
+      "tuoitre.vn",
+      "thanhnien.vn",
+      "vietnamnet.vn",
+      "dantri.com.vn",
+      "vtv.vn",
+      "vov.vn",
+      "nhandan.vn",
+      "baochinhphu.vn",
+      "gov.vn",
+      "chinhphu.vn",
+      "laodong.vn",
+      "zingnews.vn"
+    ],
+    "english": [
+      "reuters.com",
+      "apnews.com",
+      "bbc.com",
+      "cnn.com",
+      "nytimes.com",
+      "theguardian.com",
+      "washingtonpost.com",
+      "bloomberg.com",
+      "wsj.com",
+      "npr.org"
+    ],
+    "government": [
+      ".gov",
+      ".gov.vn",
+      ".edu",
+      ".ac.uk",
+      ".ac.vn"
+    ]
+  },
+  "social_media": [
+    "facebook.com",
+    "twitter.com",
+    "x.com",
+    "tiktok.com",
+    "instagram.com",
+    "reddit.com",
+    "youtube.com"
+  ],
+  "donation_keywords": {
+    "vietnamese": [
+      "quyên góp",
+      "kêu gọi",
+      "ủng hộ",
+      "giúp đỡ",
+      "từ thiện",
+      "hoàn cảnh khó khăn",
+      "mổ",
+      "phẫu thuật",
+      "bệnh viện",
+      "tiền viện phí",
+      "chữa trị",
+      "điều trị",
+      "số tài khoản",
+      "chuyển khoản"
+    ],
+    "english": [
+      "donate",
+      "donation",
+      "charity",
+      "fundraising",
+      "help",
+      "support",
+      "gofundme",
+      "contribute"
+    ]
+  },
+  "donation_red_flags": {
+    "emotional_manipulation": [
+      "thương tâm",
+      "đáng thương",
+      "tội nghiệp",
+      "rơi nước mắt",
+      "xót xa",
+      "đau lòng",
+      "cầu xin",
+      "van xin"
+    ],
+    "urgency": [
+      "gấp",
+      "khẩn cấp",
+      "cấp bách",
+      "còn 1 ngày",
+      "sắp không kịp"
+    ]
+  },
+  "legitimate_organizations": [
+    "Mặt trận Tổ quốc",
+    "Hội Chữ thập đỏ",
+    "UNICEF",
+    "Red Cross",
+    "Quỹ tấm lòng Việt",
+    "Báo Thanh Niên",
+    "VTV",
+    "Ủy ban MTTQ",
+    "UBND"
+  ],
+  "scoring_weights": {
+    "authority_boost": 30,
+    "spam_language_penalty": 20,
+    "unique_content_penalty": 30,
+    "spam_behavior_penalty": 25,
+    "multiple_sources_boost": 15
+  }
+}
+
