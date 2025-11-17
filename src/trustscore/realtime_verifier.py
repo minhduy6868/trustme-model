@@ -245,10 +245,12 @@ class RealtimeVerifier:
             from .fact_extractor import FactVerifier
             from .external_verifier import CombinedExternalVerifier
             from .donation_detector import DonationDetector
+            from .temporal_verifier import TemporalVerifier
             
             self.fact_verifier = FactVerifier()
             self.external_verifier = CombinedExternalVerifier(api_keys)
             self.donation_detector = DonationDetector()
+            self.temporal_verifier = TemporalVerifier()
             self.use_advanced = True
         except ImportError:
             self.use_advanced = False
@@ -310,22 +312,30 @@ class RealtimeVerifier:
                 urls=urls[:10]
             )
         
-        # Calculate trust score (with donation check)
+        # 7. NEW: Temporal verification (old news manipulation)
+        temporal_check = None
+        if self.use_advanced:
+            temporal_check = self.temporal_verifier.detect_old_news_manipulation(
+                original_text,
+                found_articles
+            )
+        
+        # Calculate trust score (with all checks)
         trust_score = self._calculate_trust_score(
             spam_lang, duplication, authority, spam_behavior, found_articles,
-            fact_check, external_check, donation_check
+            fact_check, external_check, donation_check, temporal_check
         )
         
-        # Determine verdict (donation scams have priority)
+        # Determine verdict (new thresholds)
         verdict = self._determine_verdict(
             trust_score, spam_lang, duplication, authority, spam_behavior,
-            fact_check, external_check, donation_check
+            fact_check, external_check, donation_check, temporal_check
         )
         
-        # Generate explanation (with donation warning)
+        # Generate explanation
         explanation = self._generate_explanation(
             verdict, spam_lang, duplication, authority, spam_behavior,
-            fact_check, external_check, donation_check
+            fact_check, external_check, donation_check, temporal_check
         )
         
         return {
@@ -340,7 +350,8 @@ class RealtimeVerifier:
                 "spam_behavior": spam_behavior,
                 "fact_check": fact_check,
                 "external_verification": external_check,
-                "donation_verification": donation_check
+                "donation_verification": donation_check,
+                "temporal_verification": temporal_check
             }
         }
     
@@ -353,53 +364,71 @@ class RealtimeVerifier:
         found_articles: List,
         fact_check: Optional[Dict] = None,
         external_check: Optional[Dict] = None,
-        donation_check: Optional[Dict] = None
+        donation_check: Optional[Dict] = None,
+        temporal_check: Optional[Dict] = None
     ) -> float:
-        """Calculate trust score 0-100"""
+        """
+        Calculate trust score 0-100
+        ALL posts go through ALL checks - no shortcuts!
+        """
         
         score = 50.0  # Start neutral
         
-        # DONATION POSTS: Special handling
-        if donation_check:
-            risk_score = donation_check['risk_score']
-            
-            # High risk donation = very low trust
-            if donation_check['is_likely_scam']:
-                score = max(10, 100 - risk_score)
-            else:
-                # Legitimate donation
-                if donation_check['legitimacy']['verified_by_gov']:
-                    score = 85
-                elif donation_check['legitimacy']['verified_by_news']:
-                    score = 75
-                else:
-                    score = max(30, 100 - risk_score)
-            
-            # Skip other calculations for donation posts
-            return max(0, min(100, score))
+        # === POSITIVE FACTORS (BOOST) ===
         
-        # REGULAR POSTS: Normal calculation
-        
-        # Authority boost (most important)
+        # Authority boost
         if authority["has_authority"]:
-            score += 30 * authority["authority_score"]
+            score += 40 * authority["authority_score"]
+            
+            if authority["trusted_count"] >= 3:
+                score += 10
+        
+        # NEW: Individual donation with verifiable info boost
+        if donation_check:
+            individual = donation_check.get('individual_legitimacy')
+            if individual:
+                verif_score = individual.get('verifiability_score', 0)
+                if verif_score >= 60:
+                    # Has hospital, address, phone → boost
+                    score += 25
+                elif verif_score >= 30:
+                    score += 15
         
         # Multiple sources boost
         if len(found_articles) > 5:
-            score += 10
+            score += 5
         elif len(found_articles) > 10:
-            score += 15
+            score += 10
         
-        # Penalties
+        # External fact-checkers boost
+        if external_check:
+            fact_checking = external_check.get('fact_checking', {})
+            if fact_checking.get('has_external_verification'):
+                external_score = fact_checking.get('external_score', 0.5)
+                if external_score > 0.8:
+                    score += 20
+                elif external_score < 0.3:
+                    score -= 25
+        
+        # === NEGATIVE FACTORS (PENALTIES) ===
         
         # Spam language penalty
         score -= 20 * spam_lang["spam_score"]
         
-        # Unique content penalty (only 1 source = suspicious)
+        # Unique content penalty (skip for individual legitimate donations)
         if duplication["is_unique"] and len(found_articles) < 2:
-            score -= 30
+            # Exception: individual donation with verifiable info
+            if donation_check:
+                individual = donation_check.get('individual_legitimacy')
+                if individual and individual.get('legitimacy') == 'likely-legitimate':
+                    # Has verifiable info → don't penalize for being unique
+                    pass
+                else:
+                    score -= 30
+            else:
+                score -= 30
         
-        # Exact match penalty (100% copy)
+        # Exact match penalty
         if duplication["exact_matches"] > 0 and not authority["has_authority"]:
             score -= 15
         
@@ -412,20 +441,46 @@ class RealtimeVerifier:
                 penalty = min(20, fact_check['total_suspicious'] * 10)
                 score -= penalty
             
-            # Bonus for no suspicious facts
             if fact_check.get('total_facts', 0) > 0 and fact_check.get('total_suspicious', 0) == 0:
                 score += 5
         
-        # External verification boost/penalty
-        if external_check:
-            fact_checking = external_check.get('fact_checking', {})
-            if fact_checking.get('has_external_verification'):
-                external_score = fact_checking.get('external_score', 0.5)
-                # Strong signal from fact-checkers
-                if external_score > 0.8:
-                    score += 20  # Verified by fact-checkers
-                elif external_score < 0.3:
-                    score -= 25  # Debunked by fact-checkers
+        # Temporal verification penalty
+        if temporal_check:
+            if temporal_check.get('is_old_news_manipulation'):
+                penalty = min(30, temporal_check.get('manipulation_score', 0))
+                score -= penalty
+        
+        # === CRITICAL PENALTIES (OVERRIDE EVERYTHING) ===
+        
+        # DONATION: Fake bank account detected
+        if donation_check:
+            account_ver = donation_check.get('account_verification', {})
+            
+            if account_ver.get('has_fake_accounts'):
+                # Fake account = auto fail, regardless of other factors
+                score = 10
+            elif (
+                account_ver.get('total_accounts', 0) > 0
+                and len(account_ver.get('verified_accounts', [])) == 0
+                and donation_check.get('legitimacy', {}).get('mentioned_organization')
+            ):
+                # Claimed official org but cannot verify account → force low score
+                score = min(score, 35)
+            elif donation_check['is_likely_scam']:
+                # High risk donation
+                score = min(score, max(10, 100 - donation_check['risk_score']))
+            elif donation_check.get('red_flags', {}).get('personal_account_only'):
+                # Personal account without org - check if has verifiable info
+                individual = donation_check.get('individual_legitimacy')
+                if individual and individual.get('legitimacy') == 'likely-legitimate':
+                    # Has hospital, address, phone → needs review but not scam
+                    score = min(score, 80)  # Increased to reach needs-review threshold
+                elif individual and individual.get('legitimacy') == 'uncertain':
+                    # Some info but not enough
+                    score = min(score, 55)
+                else:
+                    # No verifiable info → high risk
+                    score = min(score, 30)
         
         return max(0, min(100, score))
     
@@ -438,54 +493,95 @@ class RealtimeVerifier:
         spam_behavior: Dict,
         fact_check: Optional[Dict] = None,
         external_check: Optional[Dict] = None,
-        donation_check: Optional[Dict] = None
+        donation_check: Optional[Dict] = None,
+        temporal_check: Optional[Dict] = None
     ) -> str:
-        """Determine verdict based on analysis"""
+        """
+        Determine verdict - ALL posts go through ALL checks
+        Any critical red flag = FAKE, regardless of other factors
+        """
         
-        # DONATION POSTS: Priority handling
+        # === CRITICAL RED FLAGS (AUTO FAIL) ===
+        
+        # 1. Fake bank account (most critical!)
         if donation_check:
-            if donation_check['is_likely_scam']:
-                return "donation-scam"  # Special verdict for scams
-            elif donation_check['legitimacy']['verified_by_gov']:
-                return "verified"
-            elif donation_check['legitimacy']['verified_by_news']:
-                return "needs-review"  # Safer but still review
-            else:
-                return "needs-review"  # Always review donations
+            account_ver = donation_check.get('account_verification', {})
+            if account_ver.get('has_fake_accounts'):
+                return "donation-scam"  # Fake account = scam, even if news is real
+            
+            # Unverified account with org mentioned
+            if account_ver.get('total_accounts', 0) > 0 and len(account_ver.get('verified_accounts', [])) == 0:
+                if donation_check['legitimacy'].get('mentioned_organization'):
+                    return "donation-scam"  # Claimed org but wrong account
         
-        # External fact-checkers have highest priority
+        # 2. External fact-checkers debunked it
         if external_check:
-            fact_checking = external_check.get('fact_checking', {})
-            if fact_checking.get('has_external_verification'):
-                google = fact_checking.get('google_factcheck', {})
-                
-                if google.get('found') and google.get('verdict') == 'false':
-                    return "likely-false"
-                elif google.get('found') and google.get('verdict') == 'true':
-                    return "verified"
+            google = external_check.get('fact_checking', {}).get('google_factcheck', {})
+            if google.get('found') and google.get('verdict') == 'false':
+                return "likely-false"  # Fact-checkers say false
         
-        # Red flags for fake
+        # 3. Old news manipulation
+        if temporal_check and temporal_check.get('is_old_news_manipulation'):
+            return "likely-false"  # Old news being used to mislead
+        
+        # 4. High spam behavior
         if spam_behavior["is_spam"]:
-            return "likely-false"
+            return "likely-false"  # Being spammed across sites
         
-        if duplication["is_unique"] and not authority["has_authority"]:
-            return "likely-false"
-        
+        # 5. High spam language score
         if spam_lang["spam_score"] > 0.5:
-            return "likely-false"
+            return "likely-false"  # Too much clickbait
         
-        # Fact check red flags
+        # 6. Multiple suspicious facts
         if fact_check and fact_check.get('total_suspicious', 0) >= 2:
-            return "likely-false"
+            return "likely-false"  # Facts don't add up
         
-        # Green flags for real
-        if authority["has_authority"] and authority["trusted_count"] > 2:
-            return "verified"
+        # 7. Personal account in donation without org
+        if donation_check and donation_check.get('red_flags', {}).get('personal_account_only'):
+            # NEW: Check if has verifiable information
+            individual = donation_check.get('individual_legitimacy')
+            if individual and individual.get('legitimacy') == 'likely-legitimate':
+                # Has hospital, address, phone → needs-review (not auto scam)
+                pass  # Continue to score-based verdict
+            else:
+                # No verifiable info → scam
+                return "donation-scam"
         
-        # Based on trust score
-        if trust_score >= 70:
+        # 8. High risk donation (other indicators)
+        if donation_check and donation_check['is_likely_scam']:
+            # Check individual legitimacy first
+            individual = donation_check.get('individual_legitimacy')
+            if individual and individual.get('legitimacy') == 'likely-legitimate':
+                # Has verifiable info → not auto scam
+                pass  # Continue to score-based verdict
+            else:
+                return "donation-scam"
+        
+        # 9. Unique content with no authority (but skip for donations with news verification)
+        if duplication["is_unique"] and not authority["has_authority"]:
+            # Exception: donation posts verified by news/gov are OK
+            if donation_check and (donation_check['legitimacy'].get('verified_by_news') or donation_check['legitimacy'].get('verified_by_gov')):
+                pass  # Don't fail
+            else:
+                return "likely-false"  # Only 1 source, not trusted
+        
+        # === NO CRITICAL RED FLAGS - USE TRUST SCORE ===
+        
+        # External fact-checkers verified it
+        if external_check:
+            google = external_check.get('fact_checking', {}).get('google_factcheck', {})
+            if google.get('found') and google.get('verdict') == 'true':
+                return "verified"  # Fact-checkers say true
+        
+        # Trust score thresholds:
+        # >=90: verified (tin thật)
+        # 75-89: needs-review (cân nhắc, gửi link)
+        # 50-74: likely-false (có thể giả)
+        # <50: likely-false (auto giả)
+        
+        if trust_score >= 90:
             return "verified"
-        elif trust_score >= 45:
+        elif trust_score >= 75:
             return "needs-review"
         else:
             return "likely-false"
@@ -499,7 +595,8 @@ class RealtimeVerifier:
         spam_behavior: Dict,
         fact_check: Optional[Dict] = None,
         external_check: Optional[Dict] = None,
-        donation_check: Optional[Dict] = None
+        donation_check: Optional[Dict] = None,
+        temporal_check: Optional[Dict] = None
     ) -> str:
         """Generate human-readable explanation"""
         
@@ -537,6 +634,10 @@ class RealtimeVerifier:
         # Fact check results
         if fact_check and fact_check.get('total_suspicious', 0) > 0:
             reasons.append(f"{fact_check['total_suspicious']} suspicious facts detected")
+        
+        # Temporal manipulation
+        if temporal_check and temporal_check.get('is_old_news_manipulation'):
+            reasons.append(f"Old news manipulation detected: {'; '.join(temporal_check.get('reasons', []))}")
         
         if not reasons:
             reasons.append("Mixed signals, requires manual review")

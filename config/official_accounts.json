@@ -1,0 +1,68 @@
+{
+  "comment": "Official bank accounts of legitimate organizations",
+  "organizations": {
+    "mat_tran_to_quoc": {
+      "name": "Ủy ban Mặt trận Tổ quốc Việt Nam",
+      "official_accounts": [
+        {
+          "bank": "Vietcombank",
+          "account_number": "0011001932418",
+          "account_name": "UY BAN TRUNG UONG MAT TRAN TO QUOC VIET NAM"
+        }
+      ],
+      "official_websites": [
+        "mattran.org.vn",
+        "enbac.mattran.org.vn"
+      ],
+      "verified": true
+    },
+    "hoi_chu_thap_do": {
+      "name": "Hội Chữ thập đỏ Việt Nam",
+      "official_accounts": [
+        {
+          "bank": "Vietcombank",
+          "account_number": "0311000663636",
+          "account_name": "HOI CHU THAP DO VIET NAM"
+        }
+      ],
+      "official_websites": [
+        "redcross.org.vn"
+      ],
+      "verified": true
+    },
+    "quy_tam_long_viet": {
+      "name": "Quỹ Tấm lòng Việt - Báo Tuổi Trẻ",
+      "official_accounts": [
+        {
+          "bank": "Vietcombank",
+          "account_number": "0011476004999",
+          "account_name": "QUY TAM LONG VIET"
+        }
+      ],
+      "official_websites": [
+        "tuoitre.vn/tam-long-viet"
+      ],
+      "verified": true
+    },
+    "vtv_ket_noi_yeu_thuong": {
+      "name": "VTV - Kết nối yêu thương",
+      "official_accounts": [
+        {
+          "bank": "Vietcombank",
+          "account_number": "0021000303838",
+          "account_name": "CHUONG TRINH KET NOI YEU THUONG"
+        }
+      ],
+      "official_websites": [
+        "vtv.vn"
+      ],
+      "verified": true
+    }
+  },
+  "account_verification_rules": {
+    "must_match_organization_name": true,
+    "allow_partial_match": false,
+    "case_sensitive": false
+  }
+}
+
