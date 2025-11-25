@@ -24,6 +24,8 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "env_prefix": "",
         "case_sensitive": False,
+        # Ignore unrelated env vars (e.g., CRAWLER_API_URL) to avoid validation errors
+        "extra": "ignore",
     }
 
 

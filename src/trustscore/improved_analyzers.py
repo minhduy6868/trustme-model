@@ -5,14 +5,17 @@ Improved Analyzers với NLI Model và Vietnamese Support
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 import httpx
 
 from .config import get_settings
+from data_loader import load_datasets
 
 # Try import advanced models
 try:
@@ -195,22 +198,23 @@ class ImprovedLanguageRiskScorer:
     Improved language risk scorer với Vietnamese clickbait patterns
     """
     
-    VIETNAMESE_CLICKBAIT_PATTERNS = (
-        r"!{2,}",
-        r"\b(?:giật gân|sốc|chấn động|bạn sẽ không tin|không ai ngờ|gây sốt|hot)\b",
-        r"\b(?:100%|cam kết|đảm bảo|chưa từng có|độc nhất|duy nhất)\b",
-        r"\b(?:khó tin|không thể tin|choáng váng|bất ngờ|kinh hoàng)\b",
-        r"\b(?:tiết lộ|phanh phui|bí mật|vạch trần)\b",
-    )
-    
-    ENGLISH_CLICKBAIT_PATTERNS = (
-        r"\b(?:shocking|unbelievable|you won't believe|mind-blowing|incredible)\b",
-        r"\b(?:secret|revealed|exposed|truth about)\b",
-        r"\b(?:100%|guaranteed|proven|never before|exclusive)\b",
-        r"\b(?:click here|find out|discover|learn more)\b",
-    )
-    
     ALL_CAPS_PATTERN = re.compile(r"[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]{5,}")
+    
+    def __init__(self, datasets: dict | None = None):
+        data_dir = os.getenv("DATA_DIR") or str(Path(__file__).resolve().parents[2] / "data")
+        self.datasets = datasets or load_datasets(data_dir)
+        self.compiled = self.datasets.get("_compiled", {})
+        # Fallback patterns if dataset missing
+        self._fallback_vi = [
+            r"!{2,}",
+            r"\bgiật gân\b",
+            r"\bkhó tin\b",
+        ]
+        self._fallback_en = [
+            r"\bshocking\b",
+            r"\byou won't believe\b",
+            r"\bclick here\b",
+        ]
     
     def score(self, text: str, *, language: str | None = None) -> float:
         """
@@ -235,13 +239,14 @@ class ImprovedLanguageRiskScorer:
         if self.ALL_CAPS_PATTERN.search(text):
             penalties += 0.2
         
-        # Check clickbait patterns
-        patterns = self.VIETNAMESE_CLICKBAIT_PATTERNS
+        # Check clickbait patterns via dataset
         if language and language.lower().startswith("en"):
-            patterns = self.ENGLISH_CLICKBAIT_PATTERNS
+            patterns = self.compiled.get("spam_patterns_en") or [re.compile(p, re.I | re.U) for p in self._fallback_en]
+        else:
+            patterns = self.compiled.get("spam_patterns_vi") or [re.compile(p, re.I | re.U) for p in self._fallback_vi]
         
         for pattern in patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
+            matches = pattern.findall(text)
             if matches:
                 penalties += 0.15 * min(len(matches), 3)  # Max 3 matches
         
@@ -308,4 +313,3 @@ class ImprovedImageVerifier:
             return float(data.get("confidence", 0.5))
         except httpx.HTTPError:
             return 0.5
-

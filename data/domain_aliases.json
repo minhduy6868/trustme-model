@@ -1,0 +1,17 @@
+{
+  "vnexpress.net": ["vnexprss.net", "vn-express.net", "vnepress.net", "vnexxpress.net"],
+  "reuters.com": ["reutrers.com", "reuiters.com", "reuterz.com"],
+  "gov.vn": ["govv.vn", "g0v.vn", "gov-vn.com"],
+  "facebook.com": ["faceb00k.com", "facebook.co", "facebook-login.co"],
+  "tuoitre.vn": ["tu0itre.vn", "tuoitree.vn", "tuitre.vn"],
+  "thanhnien.vn": ["thanhnen.vn", "thannien.vn", "thanh-nien.vn"],
+  "zingnews.vn": ["zingnewz.vn", "zingnws.vn", "zingnew.vn"],
+  "nhandan.vn": ["nhan-dan.vn", "nhandannews.vn"],
+  "chinhphu.vn": ["chinhphu-gov.vn", "chinhphu-vn.com", "chinhphu.net"],
+  "who.int": ["who-int.org", "who-info.int"],
+  "un.org": ["un-org.net", "unofficial-un.org"],
+  "bbc.com": ["bbc.co", "bbcc.com", "bbc-news.co"],
+  "cnn.com": ["cnnnews.co", "cnn-live.com", "cnn-tv.net"],
+  "nytimes.com": ["nytime.com", "nytimes.co", "nytimes-news.com"],
+  "bloomberg.com": ["bloomberq.com", "bloombergg.com", "bloomber.com"]
+}

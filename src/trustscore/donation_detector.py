@@ -5,18 +5,25 @@ Detect fake donation/charity scam posts
 
 import re
 import json
+import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 
 def load_official_accounts() -> Dict[str, Any]:
     """Load official bank accounts database"""
-    config_path = Path(__file__).parent.parent.parent / "config" / "official_accounts.json"
-    
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    
+    data_dir = os.getenv("DATA_DIR") or Path(__file__).resolve().parents[2] / "data"
+    candidates = [
+        Path(data_dir) / "official_accounts.json",
+        Path(__file__).parent.parent.parent / "config" / "official_accounts.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict) and "organizations" not in data:
+                    data = {"organizations": data}
+                return data
     return {"organizations": {}}
 
 
@@ -368,4 +375,3 @@ class DonationDetector:
             warnings.append("Exercise caution before donating")
         
         return " | ".join(warnings)
-

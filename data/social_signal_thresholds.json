@@ -1,0 +1,17 @@
+{
+  "share_count_high": 10000,
+  "share_count_extreme": 50000,
+  "user_reports_high": 15,
+  "user_reports_critical": 50,
+  "velocity_posts_per_hour": 40,
+  "velocity_suspicious": 25,
+  "domain_repeat_threshold": 8,
+  "author_repeat_threshold": 5,
+  "anomaly_zscore_low": -2.0,
+  "anomaly_zscore_high": 3.0,
+  "age_old_news_days": 365,
+  "age_repost_flag_days": 60,
+  "engagement_sudden_spike": 300,
+  "comment_to_share_ratio_low": 0.05,
+  "negative_reaction_ratio_high": 0.3
+}

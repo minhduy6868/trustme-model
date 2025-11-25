@@ -1,0 +1,17 @@
+[
+  { "domain": "info-warrior.net", "reason": "đã nhiều lần đăng tin sai về vaccine" },
+  { "domain": "globalnews24h.co", "reason": "từng bị gỡ vì tin giả chính trị" },
+  { "domain": "hoax-alerts.com", "reason": "tổng hợp tin chưa kiểm chứng" },
+  { "domain": "fakehealthtips.net", "reason": "mẹo y tế nguy hiểm" },
+  { "domain": "rumorwire.net", "reason": "phát tán tin đồn không nguồn" },
+  { "domain": "deepfake-news.net", "reason": "dùng video deepfake" },
+  { "domain": "inf0wars.com", "reason": "định danh gần giống site giả" },
+  { "domain": "worldpoliticsdaily.co", "reason": "thổi phồng tin xung đột" },
+  { "domain": "viet-news247.net", "reason": "tin giật gân clickbait" },
+  { "domain": "boilerplate-news.biz", "reason": "tự động scrape không nguồn" },
+  { "domain": "trendingleak.co", "reason": "rò rỉ giả, không xác minh" },
+  { "domain": "covid-free-money.net", "reason": "lừa đảo hỗ trợ covid" },
+  { "domain": "urgentnotice-gov.com", "reason": "mạo danh thông báo chính phủ" },
+  { "domain": "fakepressrelease.com", "reason": "press release giả" },
+  { "domain": "tintuc24h-online.co", "reason": "spam rehost nội dung" }
+]

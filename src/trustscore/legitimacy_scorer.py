@@ -132,3 +132,5 @@ class LegitimacyScorer:
             'recommendation': recommendation
         }
 
+
+

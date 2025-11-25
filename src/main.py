@@ -8,20 +8,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any
+from collections import defaultdict, Counter
 import httpx
 import asyncio
 import uuid
+import hashlib
 import logging
 import time
 import os
 from datetime import datetime
+from pathlib import Path
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from trustscore.analyzers import ImageVerifier, LanguageRiskScorer, SemanticAnalyzer
 from trustscore.models import ClaimPayload, TrustScoreResult
 from trustscore.reputation import ReputationClient
 from trustscore.sources import SourceAggregator
 from trustscore.trust_engine import TrustEngine
+from data_loader import load_datasets
 
 try:
     import redis.asyncio as redis
@@ -41,6 +46,10 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+DATASETS: Dict[str, Any] = {}
+
+# Load environment variables early so Config picks them up
+load_dotenv()
 
 
 # Service configuration
@@ -61,6 +70,7 @@ class Config:
     MAX_TEXT_LENGTH = int(os.getenv("MAX_TEXT_LENGTH", "10000"))
     MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "50"))
     JOB_TIMEOUT = int(os.getenv("JOB_TIMEOUT", "300"))
+    DATA_DIR = os.getenv("DATA_DIR", str(Path(__file__).resolve().parent.parent / "data"))
     
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
     
@@ -71,6 +81,7 @@ class Config:
         logger.info(f"  Crawler URL: {cls.CRAWLER_API_URL}")
         logger.info(f"  Redis URL: {cls.REDIS_URL}")
         logger.info(f"  Max concurrent jobs: {cls.MAX_CONCURRENT_JOBS}")
+        logger.info(f"  Data dir: {cls.DATA_DIR}")
 
 
 config = Config()
@@ -251,6 +262,11 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     
     config.validate()
+    global DATASETS
+    DATASETS = load_datasets(config.DATA_DIR)
+    app.state.datasets = DATASETS
+    if realtime_verifier:
+        realtime_verifier.update_datasets(DATASETS)
     await storage.connect()
     
     # Test crawler connection
@@ -308,6 +324,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Initialize verification engines
+realtime_verifier = None
+USE_REALTIME = False
+
 try:
     from trustscore.realtime_verifier import RealtimeVerifier
     
@@ -322,7 +341,6 @@ try:
     
 except ImportError as e:
     logger.error(f"Failed to load realtime verifier: {e}")
-    USE_REALTIME = False
 
 # Fallback: Original engine
 engine = TrustEngine(
@@ -374,6 +392,11 @@ class VerifyResponse(BaseModel):
     error: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = None
+    flags: Optional[list] = None
+    evidence: Optional[list] = None
+    confidence_estimate: Optional[float] = None
+    override_reason: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
 
 
 # API endpoints
@@ -584,6 +607,19 @@ async def process_verification(job_id: str, request: VerifyRequest, content_hash
             return
         
         logger.info(f"[{job_id}] Found {len(found_articles)} articles for analysis")
+        domain_counts = Counter([article.get("domain") for article in found_articles if article.get("domain")])
+        crawl_data.setdefault("stats", {})["domain_frequency"] = dict(domain_counts)
+        meta_payload = {
+            "domain_frequency": dict(domain_counts),
+            "share_count": sum(article.get("share_count", 0) or 0 for article in found_articles),
+            "social_signals": crawl_data.get("stats", {}).get("social_signals"),
+            "user_reports": crawl_data.get("stats", {}).get("user_reports"),
+            "image_urls": [
+                url
+                for article in found_articles
+                for url in (article.get("image_urls") or [])
+            ],
+        }
         
         # Use RealtimeVerifier if available
         if USE_REALTIME:
@@ -592,45 +628,52 @@ async def process_verification(job_id: str, request: VerifyRequest, content_hash
             verification_result = await realtime_verifier.verify(
                 original_text=request.text,
                 found_articles=found_articles,
-                language=request.language
+                language=request.language,
+                meta=meta_payload
             )
             
-            trust_score = verification_result["trust_score"]
-            verdict = verification_result["verdict"]
-            explanation = verification_result["explanation"]
-            details = verification_result["details"]
+            trust_score = verification_result.get("trust_score", 0)
+            verdict = verification_result.get("verdict", "needs-review")
+            explanation = verification_result.get("explanation", "")
+            components = verification_result.get("components", {})
+            flags = verification_result.get("flags", [])
+            evidence_list = verification_result.get("evidence", [])
+            details = verification_result.get("details", {})
+            confidence_estimate = verification_result.get("confidence_estimate")
+            override_reason = verification_result.get("override_reason")
             
             logger.info(f"[{job_id}] Verification completed. Score: {trust_score}/100")
             
             # Extract alternatives from authority check
             alternatives = []
-            if details.get("authority", {}).get("trusted_count", 0) > 0:
-                for article in found_articles[:5]:
-                    if article.get("url_trust"):
-                        alternatives.append({
-                            "title": article.get("title", ""),
-                            "url": article.get("url", ""),
-                            "source": article.get("domain", "")
-                        })
+            domain_whitelist = DATASETS.get("domain_whitelist", [])
+            for article in found_articles[:5]:
+                domain = article.get("domain", "")
+                if article.get("url_trust") or any(d.lower() in domain.lower() for d in domain_whitelist):
+                    alternatives.append({
+                        "title": article.get("title", ""),
+                        "url": article.get("url", ""),
+                        "source": domain
+                    })
             
             await finalize_job(
                 job_id,
                 trust_score=trust_score,
                 verdict=verdict,
                 summary=explanation,
-                evidence_count=len(found_articles),
+                evidence_count=len(evidence_list) or len(found_articles),
                 crawl_stats=crawl_data.get("stats", {}),
-                components={
-                    "spam_detection": round((1 - details["spam_language"]["spam_score"]) * 100, 1),
-                    "authority": round(details["authority"]["authority_score"] * 100, 1),
-                    "duplication": round((1 - (1 if details["duplication"]["is_unique"] else 0)) * 100, 1),
-                    "fact_check": round(details.get("fact_check", {}).get("fact_score", 0.5) * 100, 1) if details.get("fact_check") else 50.0
-                },
+                components=components,
                 alternatives=alternatives,
                 is_donation_post=verification_result.get("is_donation_post", False),
                 processing_time=time.time() - start_time,
                 success=True,
-                content_hash=content_hash
+                content_hash=content_hash,
+                flags=flags,
+                evidence=evidence_list,
+                confidence_estimate=confidence_estimate,
+                override_reason=override_reason,
+                details=details
             )
             
         else:
@@ -700,6 +743,10 @@ async def process_verification(job_id: str, request: VerifyRequest, content_hash
 async def call_crawler_api(job_id: str, request: VerifyRequest) -> Dict[str, Any]:
     """Call crawler API to retrieve data"""
     
+    base_url = config.CRAWLER_API_URL.rstrip("/")
+    analyze_url = f"{base_url}/api/article/analyze"
+    search_url = f"{base_url}/search"
+
     crawler_request = {
         "query": request.text[:200],
         "max_results": 30 if request.deep_analysis else 15,
@@ -711,22 +758,95 @@ async def call_crawler_api(job_id: str, request: VerifyRequest) -> Dict[str, Any
     
     async with httpx.AsyncClient(timeout=config.CRAWLER_TIMEOUT) as client:
         try:
+            analyze_payload = build_analyze_payload(request)
+            logger.info(f"[{job_id}] Posting to crawler analyze endpoint: {analyze_url}")
             response = await client.post(
-                f"{config.CRAWLER_API_URL}/search",
-                json=crawler_request
+                analyze_url,
+                json=analyze_payload
             )
             response.raise_for_status()
-            
-            data = response.json()
-            logger.info(f"[{job_id}] Crawler returned {len(data.get('results', []))} results")
-            return data
-            
+
+            raw = response.json()
+            adapted = adapt_analyze_response(raw, request.language)
+            logger.info(
+                f"[{job_id}] Crawler returned {len(adapted.get('results', []))} normalized results "
+                f"(source total: {len(raw.get('data', []))})"
+            )
+            return adapted
+
         except httpx.TimeoutException:
             logger.error(f"[{job_id}] Crawler API timeout")
             raise Exception("Crawler API timeout")
         except httpx.HTTPError as e:
-            logger.error(f"[{job_id}] Crawler API error: {e}")
-            raise Exception(f"Crawler API error: {str(e)}")
+            logger.error(f"[{job_id}] Crawler analyze error: {e}")
+        except Exception as e:
+            logger.error(f"[{job_id}] Unexpected crawler analyze error: {e}")
+
+        # Nếu analyze fail, trả về dữ liệu trống để hệ thống kết luận "insufficient-evidence" thay vì nổ job
+        logger.warning(f"[{job_id}] Returning empty crawler data due to analyze failure")
+        return {"results": [], "stats": {}, "main_search": None}
+
+
+def build_analyze_payload(request: VerifyRequest) -> Dict[str, Any]:
+    """Build payload for crawler /api/article/analyze endpoint"""
+
+    title_hint = request.text.strip().split("\n")[0][:140] if request.text else ""
+
+    return {
+        "url": request.url or "about:blank",
+        "title": title_hint or request.url or "",
+        "article": request.text,
+        "created_at": None,
+        "author": None,
+        "platform": "web",
+        "image_urls": [],
+    }
+
+
+def adapt_analyze_response(raw: Dict[str, Any], language: str) -> Dict[str, Any]:
+    """
+    Adapt crawler /api/article/analyze response to the model's expected schema.
+    Ensures keys: results (list[dict]), stats (dict)
+    """
+    if not raw or "data" not in raw:
+        return raw or {}
+
+    meta = raw.get("meta") or {}
+    related_articles = raw.get("data") or []
+
+    results = []
+    for article in related_articles:
+        body = article.get("article") or article.get("content") or ""
+        snippet = body[:280] + ("..." if len(body) > 280 else "")
+        results.append({
+            "url": article.get("url"),
+            "title": article.get("title"),
+            "content": body or None,
+            "snippet": snippet or article.get("title"),
+            "domain": article.get("domain"),
+            "published_time": article.get("created_at"),
+            "author": article.get("author"),
+            "platform": article.get("platform") or "web",
+            "image_urls": article.get("image_urls"),
+            "share_count": article.get("share_count", 0),
+            "url_trust": article.get("is_verified_account", False),
+            "language": language,
+            "trust_score": article.get("trust_score", 50),
+        })
+
+    stats = {
+        "total_found": meta.get("total", len(related_articles)),
+        "page": meta.get("page"),
+        "has_next": meta.get("has_next"),
+        "domain_frequency": meta.get("domain_frequency") or {},
+        "source_platforms": dict(Counter([r.get("platform") for r in results if r.get("platform")])),
+    }
+
+    return {
+        "results": results,
+        "stats": stats,
+        "main_search": raw.get("main_search"),
+    }
 
 
 def prepare_documents(crawl_data: Dict[str, Any], language: str) -> list:
@@ -769,7 +889,12 @@ async def finalize_job(
     is_donation_post: bool,
     processing_time: float,
     success: bool,
-    content_hash: str = None
+    content_hash: str = None,
+    flags: Optional[list] = None,
+    evidence: Optional[list] = None,
+    confidence_estimate: Optional[float] = None,
+    override_reason: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None
 ):
     """Finalize and store job result"""
     
@@ -787,6 +912,17 @@ async def finalize_job(
         "processing_time": round(processing_time, 2),
         "completed_at": datetime.utcnow().isoformat()
     }
+    
+    if flags is not None:
+        result["flags"] = flags
+    if evidence is not None:
+        result["evidence"] = evidence
+    if confidence_estimate is not None:
+        result["confidence_estimate"] = confidence_estimate
+    if override_reason:
+        result["override_reason"] = override_reason
+    if details is not None:
+        result["details"] = details
     
     # Store by job_id
     await storage.set(

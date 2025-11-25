@@ -63,6 +63,7 @@ Optional `.env` file:
 CRAWLER_API_URL=http://localhost:8000
 REDIS_URL=redis://localhost:6379
 MAX_CONCURRENT_JOBS=50
+DATA_DIR=./trustme-model/data
 
 # Optional: Google Fact Check API
 FACT_CHECK_API_KEY=your_key_here
@@ -158,12 +159,10 @@ trustme-model/
 
 ## Customization
 
-Edit `config/spam_patterns.json` to customize:
-- Clickbait phrases
-- Trusted domains
-- Spam indicators
-- Legitimate organizations
-- Scoring weights
+Detection datasets live in `trustme-model/data/` (regex patterns, official accounts, phishing domains, fact-check DB, etc.).
+
+- Edit JSON files in `data/` then recompile with `python scripts/compile_datasets.py --data-dir trustme-model/data`.
+- `DATA_DIR` env var controls which folder is loaded at startup.
 
 ## Accuracy
 
@@ -208,4 +207,3 @@ python scripts/check_dependencies.py
 ## License
 
 Apache 2.0
-
