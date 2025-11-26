@@ -61,7 +61,7 @@ class Config:
     DESCRIPTION = "Production-ready fact-checking API with AI"
     
     CRAWLER_API_URL = os.getenv("CRAWLER_API_URL", "http://localhost:8000")
-    CRAWLER_TIMEOUT = int(os.getenv("CRAWLER_TIMEOUT", "180"))
+    CRAWLER_TIMEOUT = int(os.getenv("CRAWLER_TIMEOUT", "600"))
     
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
     REDIS_TTL_JOBS = int(os.getenv("REDIS_TTL_JOBS", "86400"))
