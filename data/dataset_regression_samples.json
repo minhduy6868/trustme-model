@@ -1,0 +1,17 @@
+{
+  "true_samples_vi": [
+    "Bộ Y tế công bố lịch tiêm vaccine COVID-19 cho trẻ em từ 5-11 tuổi tại Hà Nội.",
+    "Chính phủ ra mắt cổng dịch vụ công quốc gia phiên bản mới, không yêu cầu người dân đóng phí.",
+    "UBND TP.HCM thông báo tiến độ metro số 1, dự kiến khai thác thương mại cuối năm 2024."
+  ],
+  "true_samples_en": [
+    "Reuters reports the central bank kept its benchmark rate unchanged on Tuesday.",
+    "The Ministry of Health confirmed the dengue vaccination campaign will continue nationwide.",
+    "The Washington Post covers the new climate agreement signed at the UN summit."
+  ],
+  "fake_samples": [
+    "You won't believe what happens next when this simple hack shocks the internet!",
+    "Bí mật động trời: gấp gấp chuyển khoản để nhận quà miễn phí ngay hôm nay!",
+    "Miracle cure claims to erase all debt in one week, doctors hate this trick."
+  ]
+}

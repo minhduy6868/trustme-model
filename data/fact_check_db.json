@@ -63,6 +63,5 @@
   { "claim_hash": "fc062", "claim_text": "Government will give each citizen 5 million VND support in 2024", "verdict": "false", "source": "chinhphu.vn", "date": "2024-05-09" },
   { "claim_hash": "fc063", "claim_text": "Video shows police riot in Hanoi 2024 (actually 2016 Brazil)", "verdict": "false", "source": "afp.com", "date": "2024-06-01" },
   { "claim_hash": "fc064", "claim_text": "Marburg virus outbreak confirmed in Vietnam", "verdict": "false", "source": "moh.gov.vn", "date": "2024-03-12" },
-  { "claim_hash": "fc065", "claim_text": "Fake food coloring causes instant cancer", "verdict": "false", "source": "who.int", "date": "2023-09-15" },
-  { "claim_hash": "fc066", "claim_text": "Mitsubishi Destinator, ra mắt tại Việt Nam vào ngày 1-12, nhiều khả năng có hai phiên bản Premium và Ultimate với cấu hình cao cấp hơn thị trường Indonesia. Chỉ còn một tuần nữa, Mitsubishi Destinator sẽ ra mắt tại Việt Nam, dự kiến diễn ra vào ngày 1-12 tại TP.HCM. Đến thời điểm hiện tại, nhiều thông tin về mẫu xe này đã được hé lộ, bao gồm các phiên bản và sự khác biệt về trang bị giữa các bản.", "verdict": "true", "source": "vnexpress.net", "date": "2025-11-24" }
+  { "claim_hash": "fc065", "claim_text": "Fake food coloring causes instant cancer", "verdict": "false", "source": "who.int", "date": "2023-09-15" }
 ]

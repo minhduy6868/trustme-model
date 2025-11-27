@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from data_loader import load_datasets
+from trustscore.vector_fusion import MultiVectorFusion, FusionWeights, EmbeddingBackbone
 
 
 def _safe_parse_datetime(value: Any) -> Optional[datetime]:
@@ -45,6 +46,15 @@ def _domain_from_url(url: str) -> str:
         return urlparse(url).hostname or ""
     except Exception:
         return ""
+
+
+def _looks_invalid_account(account: str) -> bool:
+    """Return True for obviously fake banking accounts (too short/long or repeating digits)."""
+    if not account:
+        return True
+    if len(account) < 9 or len(account) > 16:
+        return True
+    return len(set(account)) == 1
 
 
 @dataclass
@@ -230,6 +240,7 @@ def detect_donation(
     official_accounts: Dict[str, Any],
     bank_account_patterns: List[re.Pattern],
     donation_indicators: List[str],
+    donation_scam_patterns: Optional[List[re.Pattern]] = None,
 ) -> DetectorResult:
     lower_text = text.lower()
     is_donation = any(indicator.lower() in lower_text for indicator in donation_indicators)
@@ -240,6 +251,13 @@ def detect_donation(
             # Use last group if exists, otherwise full match
             value = match.group(match.lastindex or 0)
             accounts.append(value)
+
+    invalid_accounts = [acc for acc in accounts if _looks_invalid_account(acc)]
+
+    scam_pattern_hits: List[str] = []
+    for pattern in donation_scam_patterns or []:
+        for m in pattern.finditer(text):
+            scam_pattern_hits.append(m.group(0))
 
     mentioned_orgs = []
     for org_key, org_accounts in official_accounts.items():
@@ -264,19 +282,38 @@ def detect_donation(
     fake_accounts = []
     for org in mentioned_orgs:
         official_list = official_accounts.get(org, [])
-        official_numbers = {item.get("account") for item in official_list}
+        allows_unknown = any(item.get("account") == "*" for item in official_list)
+        official_numbers = {item.get("account") for item in official_list if item.get("account") not in (None, "*")}
+        if allows_unknown and not official_numbers:
+            # Org acknowledged but not enforcing account match to avoid false positives
+            continue
+        if not official_numbers:
+            continue
         for acc in accounts:
             if acc in official_numbers:
                 verified_accounts.append((org, acc))
+            elif allows_unknown:
+                continue
             else:
                 fake_accounts.append((org, acc))
 
-    if fake_accounts:
+    if invalid_accounts:
         override = True
         verdict_override = "donation-scam"
         flags.append("donation-scam-critical")
+        evidence.append(f"invalid account format: {invalid_accounts[0]}")
+        score_delta -= 35.0
+    elif fake_accounts:
         evidence.append(f"mismatched account for {fake_accounts[0][0]}: {fake_accounts[0][1]}")
-        score_delta -= 40.0
+        if scam_pattern_hits:
+            override = True
+            verdict_override = "donation-scam"
+            flags.append("donation-scam-critical")
+            evidence.append(f"scam language: {scam_pattern_hits[0]}")
+            score_delta -= 40.0
+        else:
+            score_delta -= 20.0
+            flags.append("donation-unverified-account")
     elif verified_accounts:
         score_delta += 15.0
         flags.append("official-donation")
@@ -587,6 +624,8 @@ class RealtimeVerifier:
                 self._default_data_dir()
             )
         self.compiled = self.datasets.get("_compiled", {})
+        # Multi-vector fusion with LaBSE backbone to boost semantic precision
+        self.fusion = MultiVectorFusion(embedding_backbone=EmbeddingBackbone())
 
     def update_datasets(self, datasets: Dict[str, Any]):
         self.datasets = datasets or {}
@@ -607,11 +646,13 @@ class RealtimeVerifier:
         meta: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         domain_whitelist = self.datasets.get("domain_whitelist", [])
+        domain_blacklist = self.datasets.get("domain_blacklist", [])
         domain_aliases = self.datasets.get("domain_aliases", {})
         fact_check_db = self.datasets.get("fact_check_db", [])
         phishing_domains = self.datasets.get("phishing_domains", [])
         official_accounts = self.datasets.get("official_accounts", {})
         donation_indicators = self.datasets.get("donation_indicators", [])
+        donation_scam_patterns = self._get_patterns("donation_scam_patterns")
         ai_patterns = self._get_patterns("ai_content_patterns")
         translation_patterns = self._get_patterns("translation_warnings")
         bank_patterns = self._get_patterns("bank_account_patterns")
@@ -626,7 +667,13 @@ class RealtimeVerifier:
         detectors.append(detect_duplication(original_text, found_articles))
         detectors.append(detect_single_source(found_articles))
         detectors.append(detect_spam_behavior(found_articles))
-        donation_result = detect_donation(original_text, official_accounts, bank_patterns, donation_indicators)
+        donation_result = detect_donation(
+            original_text,
+            official_accounts,
+            bank_patterns,
+            donation_indicators,
+            donation_scam_patterns=donation_scam_patterns,
+        )
         detectors.append(donation_result)
         detectors.append(detect_temporal_manipulation(original_text, found_articles))
         detectors.append(detect_domain_similarity(found_articles, domain_whitelist, domain_aliases))
@@ -639,13 +686,30 @@ class RealtimeVerifier:
         detectors.append(detect_reports_and_signals(meta or {}))
         detectors.append(detect_fake_event(original_text, found_articles))
 
+        fusion_result = self.fusion.compute(
+            original_text,
+            found_articles,
+            detectors,
+            domain_whitelist,
+            domain_blacklist,
+        )
+
         override = next((d for d in detectors if d.override and d.verdict_override), None)
 
         base_score = 50.0
         for detector in detectors:
             base_score += detector.score_delta
-
         trust_score = _clamp_score(base_score)
+
+        # Multi-vector fusion adjustment prioritizes semantic similarity
+        fused_trust_score = fusion_result["fused_score"] * 100.0
+        semantic_sim = fusion_result["semantic_similarity"]
+        blended = (trust_score * 0.55) + (fused_trust_score * 0.45)
+        if semantic_sim >= 0.85:
+            blended += 7.0
+        elif semantic_sim < 0.30:
+            blended -= 8.0
+        trust_score = _clamp_score(blended)
 
         if override:
             verdict = override.verdict_override
@@ -659,16 +723,20 @@ class RealtimeVerifier:
         for detector in detectors:
             flags.extend(detector.flags)
             evidence.extend(detector.evidence)
+        evidence.insert(0, f"fusion semantic {fusion_result['semantic_similarity']:.2f}")
 
         confidence_estimate = self._confidence(detectors, trust_score, override is not None)
 
         summary = "; ".join([ev for ev in evidence[:4]]) or "No strong signals; requires manual review"
 
         components = self._components(detectors)
+        # Only floats inside components to satisfy response schema
+        components["fusion_score"] = fusion_result["fused_score"]
         details = {
             "detectors": [asdict(det) for det in detectors],
             "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
             "meta": meta or {},
+            "fusion": fusion_result,
         }
 
         return {

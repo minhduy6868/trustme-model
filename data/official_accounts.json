@@ -1,53 +1,37 @@
 {
-  "redcross.vn": [
-    { "name": "Vietnam Red Cross", "account": "0123456789", "bank": "Vietcombank" },
-    { "name": "Vietnam Red Cross Relief", "account": "0222333444", "bank": "BIDV" }
-  ],
-  "unicef.org": [
-    { "name": "UNICEF Vietnam", "account": "9988776655", "bank": "HSBC" },
-    { "name": "UNICEF Emergency", "account": "4455667788", "bank": "Standard Chartered" }
-  ],
-  "gov.vn": [
-    { "name": "Chinh Phu", "account": "8888888888", "bank": "VietinBank" },
-    { "name": "Uy ban MTTQ Viet Nam", "account": "9999000011", "bank": "Agribank" }
-  ],
-  "vietnamhelppoint.gov.vn": [
-    { "name": "Vietnam Relief Fund", "account": "7000123456", "bank": "Vietcombank" }
+  "redcross.org.vn": [
+    { "name": "Vietnam Red Cross", "account": "12010000036467", "bank": "BIDV" },
+    { "name": "Vietnam Red Cross Relief", "account": "*", "bank": "verified-official" }
   ],
   "chuthapdo.vn": [
-    { "name": "Hoi Chu Thap Do", "account": "1234509876", "bank": "Techcombank" }
+    { "name": "Hoi Chu Thap Do Viet Nam", "account": "12010000036467", "bank": "BIDV" }
+  ],
+  "gov.vn": [
+    { "name": "Uy ban Trung uong MTTQ Viet Nam", "account": "*", "bank": "official-fallback" }
+  ],
+  "unicef.org": [
+    { "name": "UNICEF Vietnam", "account": "*", "bank": "online-donation" }
   ],
   "who.int": [
-    { "name": "WHO Solidarity", "account": "1002003004", "bank": "Citibank" }
+    { "name": "WHO Solidarity", "account": "*", "bank": "online-donation" }
   ],
   "worldvision.org": [
-    { "name": "World Vision VN", "account": "5556667778", "bank": "HSBC" }
+    { "name": "World Vision VN", "account": "*", "bank": "online-donation" }
   ],
   "savethechildren.org": [
-    { "name": "Save The Children VN", "account": "3344556677", "bank": "Standard Chartered" }
+    { "name": "Save The Children VN", "account": "*", "bank": "online-donation" }
   ],
   "care.org": [
-    { "name": "CARE Vietnam", "account": "4321432143", "bank": "ACB" }
+    { "name": "CARE Vietnam", "account": "*", "bank": "online-donation" }
   ],
   "operation-smile.org": [
-    { "name": "Operation Smile VN", "account": "6767676767", "bank": "Vietcombank" }
-  ],
-  "oxfam.org": [
-    { "name": "Oxfam Vietnam", "account": "5454545454", "bank": "HSBC" }
-  ],
-  "plan-international.org": [
-    { "name": "Plan VN", "account": "2121212121", "bank": "Standard Chartered" }
-  ],
-  "wvi.org": [
-    { "name": "World Vision Relief", "account": "8080808080", "bank": "VietinBank" }
+    { "name": "Operation Smile VN", "account": "0071000899999", "bank": "Vietcombank" },
+    { "name": "Operation Smile VN", "account": "*", "bank": "online-donation" }
   ],
   "vava.org.vn": [
-    { "name": "Hoi nan nhan chat doc da cam", "account": "6666999988", "bank": "Vietcombank" }
-  ],
-  "ungthu.com.vn": [
-    { "name": "Quy ung ho benh nhan ung thu", "account": "3232323232", "bank": "BIDV" }
+    { "name": "Hoi nan nhan chat doc da cam", "account": "*", "bank": "official-fallback" }
   ],
   "unhcr.org": [
-    { "name": "UNHCR VN", "account": "9191919191", "bank": "Citibank" }
+    { "name": "UNHCR VN", "account": "*", "bank": "online-donation" }
   ]
 }

@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     image_search_api_url: str | None = None
     newsdata_api_key: str | None = None
     openpagerank_api_key: str | None = None
-    semantic_model_name: str = "multi-qa-MiniLM-L6-cos-v1"
+    # Default to multilingual LaBSE for stronger cross-lingual semantic matching
+    semantic_model_name: str = "sentence-transformers/LaBSE"
     trusted_domains: list[str] = Field(default_factory=list)
     suspicious_domains: list[str] = Field(default_factory=list)
 
