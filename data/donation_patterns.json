@@ -1,0 +1,269 @@
+{
+  "indicators": [
+    "quyên góp",
+    "kêu gọi ủng hộ",
+    "donation",
+    "fundraiser",
+    "chuyển khoản",
+    "ủng hộ đồng bào",
+    "hỗ trợ khẩn cấp",
+    "cứu trợ",
+    "từ thiện",
+    "donate now",
+    "gửi tiền",
+    "phong tỏa cứu trợ",
+    "ủng hộ quỹ",
+    "chuyển tiền",
+    "bank transfer",
+    "support fund",
+    "raising funds",
+    "go fund",
+    "quỹ cứu trợ",
+    "ủng hộ nạn nhân"
+  ],
+  "bank_account_patterns": [
+    {
+      "pattern": "(?:STK|account|acct|so tai khoan)[\\s:]*([0-9]{8,16})",
+      "example": "STK 0123456789"
+    },
+    {
+      "pattern": "(?:vietcombank|vcb)[\\s:]*([0-9]{8,16})",
+      "example": "VCB 0987654321"
+    },
+    {
+      "pattern": "(?:mbbank|mb)[\\s:]*([0-9]{8,16})",
+      "example": "MB 1231231231"
+    },
+    {
+      "pattern": "(?:acb|techcombank|tpbank)[\\s:]*([0-9]{8,16})",
+      "example": "Techcombank: 444433332222"
+    },
+    {
+      "pattern": "(?:bidv)[\\s:]*([0-9]{8,16})",
+      "example": "BIDV 555566667777"
+    },
+    {
+      "pattern": "(?:agribank|agr)[\\s:]*([0-9]{8,16})",
+      "example": "Agribank 888899990000"
+    },
+    {
+      "pattern": "(?:vietinbank|ctg)[\\s:]*([0-9]{8,16})",
+      "example": "VietinBank 123456789012"
+    },
+    {
+      "pattern": "(?:sacombank|sacom)[\\s:]*([0-9]{8,16})",
+      "example": "Sacombank: 1029384756"
+    },
+    {
+      "pattern": "(?:vpbank|vpb)[\\s:]*([0-9]{8,16})",
+      "example": "VPBank 7654321098"
+    },
+    {
+      "pattern": "(?:shb)[\\s:]*([0-9]{8,16})",
+      "example": "SHB: 2233445566"
+    },
+    {
+      "pattern": "(?:vietcapital|ccb)[\\s:]*([0-9]{8,16})",
+      "example": "VietCapital 445566778899"
+    },
+    {
+      "pattern": "(?:seabank|sea bank)[\\s:]*([0-9]{8,16})",
+      "example": "SeABank 5566778899"
+    },
+    {
+      "pattern": "(?:public bank|pbvn)[\\s:]*([0-9]{8,16})",
+      "example": "Public Bank 6677889900"
+    },
+    {
+      "pattern": "(?:hsbc)[\\s:]*([0-9]{8,16})",
+      "example": "HSBC 9090909090"
+    },
+    {
+      "pattern": "(?:citibank|citi)[\\s:]*([0-9]{8,16})",
+      "example": "Citi 8899776655"
+    },
+    {
+      "pattern": "(?:ocb)[\\s:]*([0-9]{8,16})",
+      "example": "OCB 3344556677"
+    },
+    {
+      "pattern": "(?:hdbank|hdb)[\\s:]*([0-9]{8,16})",
+      "example": "HDBank 7788990011"
+    },
+    {
+      "pattern": "(?:vib)[\\s:]*([0-9]{8,16})",
+      "example": "VIB 9900112233"
+    },
+    {
+      "pattern": "(?:eximbank|eib)[\\s:]*([0-9]{8,16})",
+      "example": "Eximbank 4466882200"
+    },
+    {
+      "pattern": "(?:abbank|abb)[\\s:]*([0-9]{8,16})",
+      "example": "ABBANK 3355779911"
+    },
+    {
+      "pattern": "(?:pgbank)[\\s:]*([0-9]{8,16})",
+      "example": "PGBank 5577993311"
+    },
+    {
+      "pattern": "(?:baoviet bank)[\\s:]*([0-9]{8,16})",
+      "example": "BaoViet 6655443322"
+    },
+    {
+      "pattern": "(?:kienlongbank)[\\s:]*([0-9]{8,16})",
+      "example": "KLB 2211334455"
+    },
+    {
+      "pattern": "(?:namabank|nam a)[\\s:]*([0-9]{8,16})",
+      "example": "NamABank 4433221100"
+    },
+    {
+      "pattern": "(?:vietbank)[\\s:]*([0-9]{8,16})",
+      "example": "VietBank 9099888877"
+    },
+    {
+      "pattern": "(?:msb)[\\s:]*([0-9]{8,16})",
+      "example": "MSB 8899001122"
+    },
+    {
+      "pattern": "(?:lpb|lienvietpostbank)[\\s:]*([0-9]{8,16})",
+      "example": "LPB 7744112233"
+    },
+    {
+      "pattern": "(?:pvcombank)[\\s:]*([0-9]{8,16})",
+      "example": "PVcomBank 6655889911"
+    },
+    {
+      "pattern": "(?:uob)[\\s:]*([0-9]{8,16})",
+      "example": "UOB 1155337799"
+    }
+  ],
+  "scam_patterns": [
+    "\\bchỉ còn hôm nay\\b",
+    "\\bgấp gấp chuyển khoản\\b",
+    "\\bnếu không chuyển sẽ muộn\\b",
+    "\\btất cả hãy giúp\\b",
+    "\\bstk lạ\\b",
+    "\\baccount number\\s*[0-9]{6,}\\b",
+    "\\bnội dung chuyển tiền ghi rõ cứu\\b",
+    "\\bkhông tiết lộ cho ai\\b",
+    "\\bchuyển vào stk cá nhân\\b",
+    "\\bkhông qua tổ chức\\b",
+    "\\btăng thêm phí nếu không gửi ngay\\b",
+    "\\bhotline duy nhất\\b",
+    "\\btài khoản dự phòng\\b",
+    "\\bảnh khóc lóc kèm stk\\b",
+    "\\bgửi tiền cho người nhà tôi\\b",
+    "\\bstk đổi mới\\b",
+    "\\bảnh viện phí giả\\b",
+    "\\blàm ơn cứu\\b",
+    "\\bđang nằm ICU cần tiền gấp\\b",
+    "\\bhứa hoàn tiền 200%\\b",
+    "\\bđổi stk vì ngân hàng bảo trì\\b",
+    "\\bkhông chuyển là muộn\\b",
+    "\\bcam kết hoàn tiền nếu không dùng\\b",
+    "\\bstk người thân thay thế\\b",
+    "\\bgửi giúp qua momo cá nhân\\b",
+    "\\bgửi đúng nội dung chuyển khoản\\b",
+    "\\bđừng gọi điện xác minh\\b",
+    "\\bchỉ cần chuyển tiền không gặp trực tiếp\\b",
+    "\\bảnh bệnh nhân dùng lại từ nơi khác\\b",
+    "\\bstk mang tên khác tổ chức\\b",
+    "\\bchuyển phí kiểm tra trước\\b",
+    "\\bhứa xuất hóa đơn sau\\b",
+    "\\bcấm hỏi thêm thông tin\\b",
+    "\\bchỉ nhận chuyển khoản không gặp mặt\\b",
+    "\\bstk người thu hộ\\b",
+    "\\bsẽ hoàn tiền nếu không chữa trị\\b"
+  ],
+  "official_accounts": {
+    "redcross.org.vn": [
+      {
+        "name": "Vietnam Red Cross",
+        "account": "12010000036467",
+        "bank": "BIDV"
+      },
+      {
+        "name": "Vietnam Red Cross Relief",
+        "account": "*",
+        "bank": "verified-official"
+      }
+    ],
+    "chuthapdo.vn": [
+      {
+        "name": "Hoi Chu Thap Do Viet Nam",
+        "account": "12010000036467",
+        "bank": "BIDV"
+      }
+    ],
+    "gov.vn": [
+      {
+        "name": "Uy ban Trung uong MTTQ Viet Nam",
+        "account": "*",
+        "bank": "official-fallback"
+      }
+    ],
+    "unicef.org": [
+      {
+        "name": "UNICEF Vietnam",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "who.int": [
+      {
+        "name": "WHO Solidarity",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "worldvision.org": [
+      {
+        "name": "World Vision VN",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "savethechildren.org": [
+      {
+        "name": "Save The Children VN",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "care.org": [
+      {
+        "name": "CARE Vietnam",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "operation-smile.org": [
+      {
+        "name": "Operation Smile VN",
+        "account": "0071000899999",
+        "bank": "Vietcombank"
+      },
+      {
+        "name": "Operation Smile VN",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ],
+    "vava.org.vn": [
+      {
+        "name": "Hoi nan nhan chat doc da cam",
+        "account": "*",
+        "bank": "official-fallback"
+      }
+    ],
+    "unhcr.org": [
+      {
+        "name": "UNHCR VN",
+        "account": "*",
+        "bank": "online-donation"
+      }
+    ]
+  }
+}

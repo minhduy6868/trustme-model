@@ -1,0 +1,627 @@
+[
+  {
+    "name": "abc.net.au",
+    "type": "domain",
+    "identifier": "abc.net.au",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "abcnews.go.com",
+    "type": "domain",
+    "identifier": "abcnews.go.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "afp.com",
+    "type": "domain",
+    "identifier": "afp.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "aljazeera.com",
+    "type": "domain",
+    "identifier": "aljazeera.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ansa.it",
+    "type": "domain",
+    "identifier": "ansa.it",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ap.org",
+    "type": "domain",
+    "identifier": "ap.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "apnews.com",
+    "type": "domain",
+    "identifier": "apnews.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "arstechnica.com",
+    "type": "domain",
+    "identifier": "arstechnica.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "baochinhphu.vn",
+    "type": "domain",
+    "identifier": "baochinhphu.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "baoquocte.vn",
+    "type": "domain",
+    "identifier": "baoquocte.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "baotintuc.vn",
+    "type": "domain",
+    "identifier": "baotintuc.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "bbc.com",
+    "type": "domain",
+    "identifier": "bbc.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "bloomberg.com",
+    "type": "domain",
+    "identifier": "bloomberg.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "bmj.com",
+    "type": "domain",
+    "identifier": "bmj.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "bnews.vn",
+    "type": "domain",
+    "identifier": "bnews.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "bostonglobe.com",
+    "type": "domain",
+    "identifier": "bostonglobe.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "cafebiz.vn",
+    "type": "domain",
+    "identifier": "cafebiz.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "cafef.vn",
+    "type": "domain",
+    "identifier": "cafef.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "cand.com.vn",
+    "type": "domain",
+    "identifier": "cand.com.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "cbsnews.com",
+    "type": "domain",
+    "identifier": "cbsnews.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "channelnewsasia.com",
+    "type": "domain",
+    "identifier": "channelnewsasia.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "chinhphu.vn",
+    "type": "domain",
+    "identifier": "chinhphu.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "cnn.com",
+    "type": "domain",
+    "identifier": "cnn.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ctvnews.ca",
+    "type": "domain",
+    "identifier": "ctvnews.ca",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "dangcongsan.vn",
+    "type": "domain",
+    "identifier": "dangcongsan.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "dantri.com.vn",
+    "type": "domain",
+    "identifier": "dantri.com.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "dw.com",
+    "type": "domain",
+    "identifier": "dw.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "economist.com",
+    "type": "domain",
+    "identifier": "economist.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "elpais.com",
+    "type": "domain",
+    "identifier": "elpais.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ema.europa.eu",
+    "type": "domain",
+    "identifier": "ema.europa.eu",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "engadget.com",
+    "type": "domain",
+    "identifier": "engadget.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "fda.gov",
+    "type": "domain",
+    "identifier": "fda.gov",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "forbes.com",
+    "type": "domain",
+    "identifier": "forbes.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ft.com",
+    "type": "domain",
+    "identifier": "ft.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "gov.vn",
+    "type": "domain",
+    "identifier": "gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "ictnews.vn",
+    "type": "domain",
+    "identifier": "ictnews.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "imf.org",
+    "type": "domain",
+    "identifier": "imf.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "japantimes.co.jp",
+    "type": "domain",
+    "identifier": "japantimes.co.jp",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "kyodonews.net",
+    "type": "domain",
+    "identifier": "kyodonews.net",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "laodong.vn",
+    "type": "domain",
+    "identifier": "laodong.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "latimes.com",
+    "type": "domain",
+    "identifier": "latimes.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "lemonde.fr",
+    "type": "domain",
+    "identifier": "lemonde.fr",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "mic.gov.vn",
+    "type": "domain",
+    "identifier": "mic.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "mit.edu",
+    "type": "domain",
+    "identifier": "mit.edu",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "mofa.gov.vn",
+    "type": "domain",
+    "identifier": "mofa.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "moh.gov.vn",
+    "type": "domain",
+    "identifier": "moh.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "moha.gov.vn",
+    "type": "domain",
+    "identifier": "moha.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "nature.com",
+    "type": "domain",
+    "identifier": "nature.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "nbcnews.com",
+    "type": "domain",
+    "identifier": "nbcnews.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "nhandan.vn",
+    "type": "domain",
+    "identifier": "nhandan.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "nhk.or.jp",
+    "type": "domain",
+    "identifier": "nhk.or.jp",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "npr.org",
+    "type": "domain",
+    "identifier": "npr.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "nytimes.com",
+    "type": "domain",
+    "identifier": "nytimes.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "oecd.org",
+    "type": "domain",
+    "identifier": "oecd.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "plo.vn",
+    "type": "domain",
+    "identifier": "plo.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "pnas.org",
+    "type": "domain",
+    "identifier": "pnas.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "quochoi.vn",
+    "type": "domain",
+    "identifier": "quochoi.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "reuters.com",
+    "type": "domain",
+    "identifier": "reuters.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "science.org",
+    "type": "domain",
+    "identifier": "science.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "scmp.com",
+    "type": "domain",
+    "identifier": "scmp.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "spiegel.de",
+    "type": "domain",
+    "identifier": "spiegel.de",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "straitstimes.com",
+    "type": "domain",
+    "identifier": "straitstimes.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "suckhoedoisong.vn",
+    "type": "domain",
+    "identifier": "suckhoedoisong.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "techcrunch.com",
+    "type": "domain",
+    "identifier": "techcrunch.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "thanhnien.vn",
+    "type": "domain",
+    "identifier": "thanhnien.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "theguardian.com",
+    "type": "domain",
+    "identifier": "theguardian.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "thelancet.com",
+    "type": "domain",
+    "identifier": "thelancet.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "tuoitre.vn",
+    "type": "domain",
+    "identifier": "tuoitre.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "un.org",
+    "type": "domain",
+    "identifier": "un.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vietnamnet.vn",
+    "type": "domain",
+    "identifier": "vietnamnet.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vietnamnews.vn",
+    "type": "domain",
+    "identifier": "vietnamnews.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vietnamplus.vn",
+    "type": "domain",
+    "identifier": "vietnamplus.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vncdc.gov.vn",
+    "type": "domain",
+    "identifier": "vncdc.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vnews.gov.vn",
+    "type": "domain",
+    "identifier": "vnews.gov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vnexpress.net",
+    "type": "domain",
+    "identifier": "vnexpress.net",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vov.vn",
+    "type": "domain",
+    "identifier": "vov.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vtc.vn",
+    "type": "domain",
+    "identifier": "vtc.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "vtv.vn",
+    "type": "domain",
+    "identifier": "vtv.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "washingtonpost.com",
+    "type": "domain",
+    "identifier": "washingtonpost.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "who.int",
+    "type": "domain",
+    "identifier": "who.int",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "wired.co.uk",
+    "type": "domain",
+    "identifier": "wired.co.uk",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "wired.com",
+    "type": "domain",
+    "identifier": "wired.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "worldbank.org",
+    "type": "domain",
+    "identifier": "worldbank.org",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "wsj.com",
+    "type": "domain",
+    "identifier": "wsj.com",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "zingnews.vn",
+    "type": "domain",
+    "identifier": "zingnews.vn",
+    "trust_score": 1.0,
+    "full_score": true
+  },
+  {
+    "name": "Thông tin Chính phủ",
+    "type": "page",
+    "identifier": "facebook.com/thongtinchinhphu",
+    "trust_score": 0.97
+  },
+  {
+    "name": "Bộ Y tế - Thông tin chính thức",
+    "type": "page",
+    "identifier": "facebook.com/boytevietnam",
+    "trust_score": 0.95
+  },
+  {
+    "name": "Báo Nhân Dân",
+    "type": "page",
+    "identifier": "facebook.com/nhandandientu",
+    "trust_score": 0.93
+  },
+  {
+    "name": "VTV24",
+    "type": "page",
+    "identifier": "facebook.com/vtv24news",
+    "trust_score": 0.92
+  },
+  {
+    "name": "VNExpress",
+    "type": "page",
+    "identifier": "facebook.com/vnexpress.net",
+    "trust_score": 0.9
+  }
+]

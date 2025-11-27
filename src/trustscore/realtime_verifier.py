@@ -48,6 +48,57 @@ def _domain_from_url(url: str) -> str:
         return ""
 
 
+def _split_claims(text: str, max_sentences: int = 4) -> List[str]:
+    if not text:
+        return []
+    parts = re.split(r"[\.!\?]\s+", text)
+    sentences = [p.strip() for p in parts if len(p.strip()) > 15]
+    return sentences[:max_sentences]
+
+
+def _primary_domain(found_articles: List[Dict[str, Any]], meta: Optional[Dict[str, Any]]) -> str:
+    if meta and isinstance(meta.get("domain_frequency"), dict):
+        if meta["domain_frequency"]:
+            return max(meta["domain_frequency"].items(), key=lambda kv: kv[1])[0] or ""
+    for article in found_articles:
+        if article.get("domain"):
+            return str(article["domain"])
+    return ""
+
+
+def _is_whitelisted(domain: str, whitelist: List[str]) -> bool:
+    if not domain:
+        return False
+    domain_lower = domain.lower()
+    return any(domain_lower.endswith(w.lower()) or w.lower() in domain_lower for w in whitelist)
+
+
+def _has_donation_signals(text: str, donation_indicators: List[str], bank_patterns: List[re.Pattern]) -> bool:
+    if not text:
+        return False
+    lower_text = text.lower()
+    if any(indicator.lower() in lower_text for indicator in donation_indicators):
+        return True
+    for pattern in bank_patterns:
+        if pattern.search(text):
+            return True
+    return False
+
+
+def _reference_texts(found_articles: List[Dict[str, Any]], max_refs: int = 12) -> List[str]:
+    refs: List[str] = []
+    for item in found_articles:
+        title = item.get("title") or ""
+        snippet = item.get("snippet") or ""
+        content = item.get("article") or item.get("content") or ""
+        combined = " ".join([title, snippet, content]).strip()
+        if combined:
+            refs.append(combined)
+        if len(refs) >= max_refs:
+            break
+    return refs
+
+
 def _looks_invalid_account(account: str) -> bool:
     """Return True for obviously fake banking accounts (too short/long or repeating digits)."""
     if not account:
@@ -107,9 +158,34 @@ def detect_clickbait(text: str, patterns: List[re.Pattern], language: str = "vi"
     )
 
 
-def detect_authority(found_articles: List[Dict[str, Any]], domain_whitelist: List[str]) -> DetectorResult:
+def detect_authority(
+    found_articles: List[Dict[str, Any]],
+    domain_whitelist: List[str],
+    primary_domain: Optional[str] = None,
+    trusted_pages: Optional[List[Dict[str, Any]]] = None,
+    trusted_sources: Optional[List[Dict[str, Any]]] = None,
+) -> DetectorResult:
     trusted = []
     gov_hits = []
+    primary_hit = False
+    page_hits: List[str] = []
+    trusted_pages = trusted_pages or []
+    trusted_sources = trusted_sources or []
+
+    primary_entry = None
+    if primary_domain:
+        primary_entry = next(
+            (s for s in trusted_sources if (s.get("identifier") or "").lower() == primary_domain.lower()), None
+        )
+
+    if primary_domain:
+        domain = primary_domain.lower()
+        if any(domain.endswith(w.lower()) or w.lower() in domain for w in domain_whitelist):
+            trusted.append(domain)
+            primary_hit = True
+            if domain.endswith(".gov") or domain.endswith(".gov.vn") or "gov" in domain:
+                gov_hits.append(domain)
+
     for article in found_articles:
         domain = (article.get("domain") or "").lower()
         if any(domain.endswith(w.lower()) or w.lower() in domain for w in domain_whitelist):
@@ -117,21 +193,96 @@ def detect_authority(found_articles: List[Dict[str, Any]], domain_whitelist: Lis
             if domain.endswith(".gov") or domain.endswith(".gov.vn") or "gov" in domain:
                 gov_hits.append(domain)
 
+        url = (article.get("url") or "").lower()
+        for page in trusted_pages:
+            ident = (page.get("identifier") or "").lower()
+            if ident and ident in url:
+                page_hits.append(page.get("name") or ident)
+                trusted.append(ident)
+
     if not trusted:
         return DetectorResult(name="authority", score_delta=0, confidence=0.2, flags=["authority"])
 
-    boost = min(30.0, 8.0 * len(set(trusted)))
+    base_boost = 80.0 if primary_hit else 0.0
+    boost = base_boost + min(30.0, 8.0 * len(set(trusted)))
+    if page_hits:
+        page_bonus = min(40.0, 12.0 * len(set(page_hits)))
+        boost += page_bonus
     if gov_hits:
         boost += 10.0
 
-    evidence = [f"trusted domain: {d}" for d in sorted(set(trusted))[:5]]
+    evidence = [f"trusted domain: {d}" for d in sorted(set(trusted)) if d not in page_hits][:5]
+    if page_hits:
+        evidence.extend([f"trusted page: {p}" for p in sorted(set(page_hits))[:3]])
+    primary_fullscore = bool(primary_entry and (primary_entry.get("full_score") or primary_entry.get("trust_score", 0) >= 0.95))
+
     return DetectorResult(
         name="authority",
         score_delta=boost,
-        confidence=0.9,
+        confidence=0.95 if primary_hit else 0.9,
         evidence=evidence,
         flags=["authority", "official"] if gov_hits else ["authority"],
-        meta={"trusted_domains": sorted(set(trusted))},
+        meta={
+            "trusted_domains": sorted(set(trusted)),
+            "primary_whitelisted": primary_hit,
+            "primary_fullscore": primary_fullscore,
+            "trusted_pages": sorted(set(page_hits)),
+        },
+    )
+
+
+def cross_source_authority_boost(
+    similarity: float,
+    found_articles: List[Dict[str, Any]],
+    domain_whitelist: List[str],
+    primary_domain: Optional[str] = None,
+    trusted_pages: Optional[List[Dict[str, Any]]] = None,
+) -> DetectorResult:
+    whitelist_hits = []
+    page_hits = []
+    trusted_pages = trusted_pages or []
+    for article in found_articles:
+        domain = (article.get("domain") or "").lower()
+        if not domain or (primary_domain and domain == primary_domain.lower()):
+            continue
+        if any(domain.endswith(w.lower()) or w.lower() in domain for w in domain_whitelist):
+            whitelist_hits.append(domain)
+        url = (article.get("url") or "").lower()
+        for page in trusted_pages:
+            ident = (page.get("identifier") or "").lower()
+            if ident and ident in url:
+                page_hits.append(page.get("name") or ident)
+
+    unique_hits = sorted(set(whitelist_hits))
+    unique_pages = sorted(set(page_hits))
+    if similarity >= 0.9 and len(unique_hits) >= 2:
+        boost = 80.0
+        flags = ["authority-cross", "likely-real"]
+    elif similarity >= 0.8 and (unique_hits or unique_pages):
+        boost = 55.0
+        flags = ["authority-cross"]
+    else:
+        return DetectorResult(
+            name="cross-authority",
+            score_delta=0.0,
+            confidence=0.4,
+            evidence=[],
+            flags=["authority"],
+        )
+
+    evidence = [f"confirmed by: {d}" for d in unique_hits[:3]]
+    evidence.extend([f"confirmed page: {p}" for p in unique_pages[:2]])
+    return DetectorResult(
+        name="cross-authority",
+        score_delta=boost,
+        confidence=0.9,
+        evidence=evidence,
+        flags=flags,
+        meta={
+            "matched_trusted_domains": unique_hits,
+            "matched_trusted_pages": unique_pages,
+            "similarity": similarity,
+        },
     )
 
 
@@ -473,6 +624,10 @@ def detect_ai_generated(text: str, ai_patterns: List[re.Pattern]) -> DetectorRes
         variance = sum((l - avg_len) ** 2 for l in sentence_lengths) / len(sentence_lengths)
         uniformity = 1.0 / (1.0 + variance)
 
+    hedging_markers = ["có thể", "nghe nói", "theo nguồn tin", "reportedly", "rumor", "allegedly"]
+    sentences = [s.strip() for s in re.split(r"[.?!]", text) if s.strip()]
+    hedging_hits = sum(1 for s in sentences if any(marker in s.lower() for marker in hedging_markers))
+
     suspicion_score = 0.0
     if matches:
         suspicion_score += 0.4
@@ -480,6 +635,8 @@ def detect_ai_generated(text: str, ai_patterns: List[re.Pattern]) -> DetectorRes
         suspicion_score += 0.3
     if uniformity > 0.25:
         suspicion_score += 0.2
+    if hedging_hits:
+        suspicion_score += min(0.2, hedging_hits * 0.05)
 
     if suspicion_score < 0.4:
         return DetectorResult(name="ai-content", score_delta=0, confidence=0.3, flags=["ai"])
@@ -487,6 +644,8 @@ def detect_ai_generated(text: str, ai_patterns: List[re.Pattern]) -> DetectorRes
     evidence = [f"repetition ratio {repetition_ratio:.2f}", f"uniformity {uniformity:.2f}"]
     if matches:
         evidence.append(f"patterns: {', '.join(set(matches[:2]))}")
+    if hedging_hits:
+        evidence.append(f"hedging sentences: {hedging_hits}")
 
     return DetectorResult(
         name="ai-content",
@@ -645,6 +804,7 @@ class RealtimeVerifier:
         language: str = "vi",
         meta: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        trusted_sources = self.datasets.get("trusted_sources", [])
         domain_whitelist = self.datasets.get("domain_whitelist", [])
         domain_blacklist = self.datasets.get("domain_blacklist", [])
         domain_aliases = self.datasets.get("domain_aliases", {})
@@ -660,13 +820,176 @@ class RealtimeVerifier:
         spam_key = "spam_patterns_vi" if language.lower().startswith("vi") else "spam_patterns_en"
         clickbait_patterns = self._get_patterns(spam_key)
 
+        meta = meta or {}
         detectors: List[DetectorResult] = []
 
-        detectors.append(detect_clickbait(original_text, clickbait_patterns, language))
-        detectors.append(detect_authority(found_articles, domain_whitelist))
-        detectors.append(detect_duplication(original_text, found_articles))
-        detectors.append(detect_single_source(found_articles))
-        detectors.append(detect_spam_behavior(found_articles))
+        primary_domain = _primary_domain(found_articles, meta)
+        in_whitelist = _is_whitelisted(primary_domain, domain_whitelist)
+        in_blacklist = bool(primary_domain) and primary_domain.lower() in {d.lower() for d in domain_blacklist}
+        trusted_pages = [s for s in trusted_sources if s.get("type") == "page"]
+        trusted_domains = [s for s in trusted_sources if s.get("type") == "domain"]
+
+        # Pre-compute modules needed for authority-first early stop
+        temporal_result = detect_temporal_manipulation(original_text, found_articles)
+        domain_similarity_result = detect_domain_similarity(found_articles, domain_whitelist, domain_aliases)
+        donation_signal_present = _has_donation_signals(original_text, donation_indicators, bank_patterns)
+
+        # 1) Authority check (Authority First)
+        authority_result = detect_authority(
+            found_articles,
+            domain_whitelist,
+            primary_domain=primary_domain,
+            trusted_pages=trusted_pages,
+            trusted_sources=trusted_domains,
+        )
+        detectors.append(authority_result)
+        detectors.append(domain_similarity_result)
+
+        old_news_flag = any(flag in temporal_result.flags for flag in ["old-news", "old-news-reposted"])
+        primary_fullscore = authority_result.meta.get("primary_fullscore")
+        if (authority_result.meta.get("primary_whitelisted") or primary_fullscore) and not donation_signal_present and "typosquatting" not in domain_similarity_result.flags and not old_news_flag:
+            fusion_result = self.fusion.compute(
+                original_text,
+                found_articles,
+                detectors,
+                domain_whitelist,
+                domain_blacklist,
+            )
+            trust_score = _clamp_score(100.0)
+            evidence = ["FULL SCORE: trusted source (authority-first)"]
+            evidence.extend(authority_result.evidence[:3])
+            summary = "REAL – Trusted Source (FULL SCORE: trusted source, không phát hiện bất thường)"
+            flags = sorted(set(authority_result.flags + domain_similarity_result.flags))
+            components = self._components(detectors)
+            components["fusion_score"] = fusion_result["fused_score"]
+            components.update(
+                {
+                    "semantic_similarity": fusion_result["semantic_similarity"],
+                    "domain_reliability": 1.0,
+                    "temporal_consistency": 0.9,
+                    "linguistic_certainty": 0.8,
+                    "spam_behavior_score": 0.8,
+                    "donation_suspicion": 1.0,
+                }
+            )
+            return {
+                "trust_score": trust_score,
+                "verdict": "verified",
+                "explanation": summary,
+                "flags": flags,
+                "evidence": evidence,
+                "confidence_estimate": self._confidence(detectors, trust_score, False),
+                "override_reason": "authority-whitelist",
+                "details": {
+                    "detectors": [asdict(det) for det in detectors],
+                    "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
+                    "meta": meta,
+                    "fusion": fusion_result,
+                },
+                "components": components,
+                "is_donation_post": False,
+            }
+
+        # 2) Semantic fact matching (embeddings)
+        claims = _split_claims(original_text)
+        references = _reference_texts(found_articles)
+        semantic_similarity = self.fusion.embedding.best_similarity(claims, references)
+        semantic_evidence = [f"semantic similarity {semantic_similarity:.2f}"]
+        if semantic_similarity >= 0.85:
+            semantic_delta = 25.0
+            semantic_flags = ["semantic-strong"]
+        elif semantic_similarity >= 0.5:
+            semantic_delta = 5.0
+            semantic_flags = ["semantic-medium"]
+        else:
+            semantic_delta = -25.0 if semantic_similarity < 0.3 else -10.0
+            semantic_flags = ["semantic-mismatch"]
+        semantic_result = DetectorResult(
+            name="semantic-fact-match",
+            score_delta=semantic_delta,
+            confidence=0.9 if references else 0.5,
+            evidence=semantic_evidence,
+            flags=semantic_flags,
+            meta={"similarity": semantic_similarity, "claims": claims},
+        )
+        detectors.append(semantic_result)
+
+        # Cross-source authority validation (requires semantic score)
+        cross_authority_result = cross_source_authority_boost(
+            semantic_similarity,
+            found_articles,
+            domain_whitelist,
+            primary_domain=primary_domain,
+            trusted_pages=trusted_pages,
+        )
+        detectors.append(cross_authority_result)
+
+        # Early stop: semantic mismatch + low-trust domain
+        low_trust_domain = (not in_whitelist) and (in_blacklist or len(found_articles) <= 1 or "typosquatting" in domain_similarity_result.flags)
+        if semantic_similarity < 0.30 and low_trust_domain:
+            fusion_result = self.fusion.compute(
+                original_text,
+                found_articles,
+                detectors,
+                domain_whitelist,
+                domain_blacklist,
+            )
+            trust_score = _clamp_score(18.0)
+            evidence = ["semantic mismatch <0.30", "low trust domain"]
+            evidence.extend(domain_similarity_result.evidence[:2])
+            flags = sorted(set(["semantic-mismatch", "low-trust"] + domain_similarity_result.flags))
+            components = self._components(detectors)
+            components["fusion_score"] = fusion_result["fused_score"]
+            components.update(
+                {
+                    "semantic_similarity": fusion_result["semantic_similarity"],
+                    "domain_reliability": 0.2,
+                    "temporal_consistency": 0.8,
+                    "linguistic_certainty": 0.6,
+                    "spam_behavior_score": 0.6,
+                    "donation_suspicion": 0.9,
+                }
+            )
+            return {
+                "trust_score": trust_score,
+                "verdict": "likely-false",
+                "explanation": "FAKE / NOT VERIFIED – semantic mismatch mạnh và domain rác",
+                "flags": flags,
+                "evidence": evidence,
+                "confidence_estimate": self._confidence(detectors, trust_score, True),
+                "override_reason": "semantic-mismatch-lowtrust",
+                "details": {
+                    "detectors": [asdict(det) for det in detectors],
+                    "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
+                    "meta": meta,
+                    "fusion": fusion_result,
+                },
+                "components": components,
+                "is_donation_post": False,
+            }
+
+        # 3) External fact check
+        fact_check_result = detect_external_fact_check(original_text, fact_check_db)
+        detectors.append(fact_check_result)
+
+        # 4) Temporal consistency
+        detectors.append(temporal_result)
+
+        # 5) AI-language / stylistic analysis (sentence-level)
+        ai_result = detect_ai_generated(original_text, ai_patterns)
+        detectors.append(ai_result)
+
+        # 6) Clickbait detection (content quality)
+        clickbait_result = detect_clickbait(original_text, clickbait_patterns, language)
+        detectors.append(clickbait_result)
+
+        # 7) Spam / duplication signals
+        duplication_result = detect_duplication(original_text, found_articles)
+        single_source_result = detect_single_source(found_articles)
+        spam_result = detect_spam_behavior(found_articles)
+        detectors.extend([duplication_result, single_source_result, spam_result])
+
+        # 8) Donation / banking checks (only when signals exist)
         donation_result = detect_donation(
             original_text,
             official_accounts,
@@ -675,17 +998,100 @@ class RealtimeVerifier:
             donation_scam_patterns=donation_scam_patterns,
         )
         detectors.append(donation_result)
-        detectors.append(detect_temporal_manipulation(original_text, found_articles))
-        detectors.append(detect_domain_similarity(found_articles, domain_whitelist, domain_aliases))
-        detectors.append(detect_external_fact_check(original_text, fact_check_db))
-        detectors.append(detect_ai_generated(original_text, ai_patterns))
-        image_urls = meta.get("image_urls", []) if meta else []
-        detectors.append(detect_media_age(image_urls, found_articles))
-        detectors.append(detect_translation_issues(original_text, translation_patterns))
-        detectors.append(detect_phishing_or_malware_links(original_text, phishing_domains, found_articles))
-        detectors.append(detect_reports_and_signals(meta or {}))
-        detectors.append(detect_fake_event(original_text, found_articles))
 
+        # Additional safety/translation/media checks (supporting, not decisive alone)
+        image_urls = meta.get("image_urls", []) if meta else []
+        translation_result = detect_translation_issues(original_text, translation_patterns)
+        media_age_result = detect_media_age(image_urls, found_articles)
+        phishing_result = detect_phishing_or_malware_links(original_text, phishing_domains, found_articles)
+        reports_result = detect_reports_and_signals(meta or {})
+        fake_event_result = detect_fake_event(original_text, found_articles)
+        detectors.extend([media_age_result, translation_result, phishing_result, reports_result, fake_event_result])
+
+        # Early stop for old news misleading on low-trust domain
+        if temporal_result.override and not in_whitelist:
+            fusion_result = self.fusion.compute(
+                original_text,
+                found_articles,
+                detectors,
+                domain_whitelist,
+                domain_blacklist,
+            )
+            trust_score = _clamp_score(22.0)
+            evidence = temporal_result.evidence[:3] or ["old news resurfaced"]
+            evidence.insert(0, "temporal inconsistency")
+            components = self._components(detectors)
+            components["fusion_score"] = fusion_result["fused_score"]
+            components.update(
+                {
+                    "semantic_similarity": fusion_result["semantic_similarity"],
+                    "domain_reliability": 0.35,
+                    "temporal_consistency": 0.2,
+                    "linguistic_certainty": 0.65,
+                    "spam_behavior_score": 0.6,
+                    "donation_suspicion": 0.9,
+                }
+            )
+            return {
+                "trust_score": trust_score,
+                "verdict": temporal_result.verdict_override or "likely-false",
+                "explanation": "MISLEADING – Old News",
+                "flags": sorted(set(temporal_result.flags + domain_similarity_result.flags)),
+                "evidence": evidence,
+                "confidence_estimate": self._confidence(detectors, trust_score, True),
+                "override_reason": "old-news",
+                "details": {
+                    "detectors": [asdict(det) for det in detectors],
+                    "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
+                    "meta": meta,
+                    "fusion": fusion_result,
+                },
+                "components": components,
+                "is_donation_post": donation_result.meta.get("is_donation_post", False),
+            }
+
+        # Early stop for donation scam
+        if donation_result.override:
+            fusion_result = self.fusion.compute(
+                original_text,
+                found_articles,
+                detectors,
+                domain_whitelist,
+                domain_blacklist,
+            )
+            trust_score = _clamp_score(15.0)
+            evidence = donation_result.evidence[:3] or ["donation scam signals"]
+            components = self._components(detectors)
+            components["fusion_score"] = fusion_result["fused_score"]
+            components.update(
+                {
+                    "semantic_similarity": fusion_result["semantic_similarity"],
+                    "domain_reliability": 0.25,
+                    "temporal_consistency": 0.7,
+                    "linguistic_certainty": 0.6,
+                    "spam_behavior_score": 0.6,
+                    "donation_suspicion": 0.0,
+                }
+            )
+            return {
+                "trust_score": trust_score,
+                "verdict": donation_result.verdict_override or "likely-false",
+                "explanation": "SCAM / FRAUD – phát hiện dấu hiệu chuyển khoản bất thường",
+                "flags": sorted(set(donation_result.flags)),
+                "evidence": evidence,
+                "confidence_estimate": self._confidence(detectors, trust_score, True),
+                "override_reason": "donation-scam",
+                "details": {
+                    "detectors": [asdict(det) for det in detectors],
+                    "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
+                    "meta": meta,
+                    "fusion": fusion_result,
+                },
+                "components": components,
+                "is_donation_post": donation_result.meta.get("is_donation_post", False),
+            }
+
+        # Multi-vector fusion (for reference) and weighted trust score
         fusion_result = self.fusion.compute(
             original_text,
             found_articles,
@@ -694,23 +1100,71 @@ class RealtimeVerifier:
             domain_blacklist,
         )
 
+        semantic_component = max(0.0, min(1.0, semantic_similarity))
+        if "fact-verified" in fact_check_result.flags:
+            semantic_component = min(1.0, semantic_component + 0.1)
+        if "debunked" in fact_check_result.flags:
+            semantic_component = max(0.0, semantic_component - 0.35)
+
+        domain_component = 1.0 if in_whitelist else 0.35
+        domain_component += max(0.0, authority_result.score_delta / 120.0)
+        domain_component += max(0.0, cross_authority_result.score_delta / 120.0)
+        if in_blacklist:
+            domain_component -= 0.35
+        if "typosquatting" in domain_similarity_result.flags:
+            domain_component -= 0.2
+        domain_component = max(0.0, min(1.0, domain_component))
+
+        temporal_component = 0.9
+        if temporal_result.score_delta < 0:
+            temporal_component += temporal_result.score_delta / 40.0
+        if "old-news-reposted" in temporal_result.flags:
+            temporal_component = 0.2
+        elif "old-news" in temporal_result.flags:
+            temporal_component = min(temporal_component, 0.6)
+        temporal_component = max(0.0, min(1.0, temporal_component))
+
+        ai_penalty = abs(ai_result.score_delta) / 50.0 if ai_result.score_delta < 0 else 0.0
+        clickbait_penalty = abs(clickbait_result.score_delta) / 60.0 if clickbait_result.score_delta < 0 else 0.0
+        translation_penalty = abs(translation_result.score_delta) / 50.0 if translation_result.score_delta < 0 else 0.0
+        linguistic_component = max(0.0, min(1.0, 0.85 - ai_penalty - clickbait_penalty - translation_penalty))
+
+        spam_penalty = 0.0
+        for det in [spam_result, duplication_result, single_source_result, reports_result, fake_event_result]:
+            if det.score_delta < 0:
+                spam_penalty += abs(det.score_delta) / 100.0
+        spam_component = max(0.0, min(1.0, 0.85 - spam_penalty))
+
+        donation_component = 1.0
+        if donation_result.score_delta < 0:
+            donation_component = max(0.0, 1.0 - abs(donation_result.score_delta) / 50.0)
+        elif donation_result.score_delta > 0:
+            donation_component = min(1.0, 1.0 + donation_result.score_delta / 80.0)
+
+        if cross_authority_result.score_delta > 0:
+            linguistic_component = max(linguistic_component, 0.75)
+            spam_component = max(spam_component, 0.7)
+
+        weights = {
+            "semantic": 0.32,
+            "domain": 0.28,
+            "temporal": 0.14,
+            "linguistic": 0.1,
+            "spam": 0.1,
+            "donation": 0.06,
+        }
+
+        trust_score = 100.0 * (
+            weights["semantic"] * semantic_component
+            + weights["domain"] * domain_component
+            + weights["temporal"] * temporal_component
+            + weights["linguistic"] * linguistic_component
+            + weights["spam"] * spam_component
+            + weights["donation"] * donation_component
+        )
+        trust_score = _clamp_score(trust_score)
+
         override = next((d for d in detectors if d.override and d.verdict_override), None)
-
-        base_score = 50.0
-        for detector in detectors:
-            base_score += detector.score_delta
-        trust_score = _clamp_score(base_score)
-
-        # Multi-vector fusion adjustment prioritizes semantic similarity
-        fused_trust_score = fusion_result["fused_score"] * 100.0
-        semantic_sim = fusion_result["semantic_similarity"]
-        blended = (trust_score * 0.55) + (fused_trust_score * 0.45)
-        if semantic_sim >= 0.85:
-            blended += 7.0
-        elif semantic_sim < 0.30:
-            blended -= 8.0
-        trust_score = _clamp_score(blended)
-
         if override:
             verdict = override.verdict_override
             override_reason = override.name
@@ -723,19 +1177,31 @@ class RealtimeVerifier:
         for detector in detectors:
             flags.extend(detector.flags)
             evidence.extend(detector.evidence)
-        evidence.insert(0, f"fusion semantic {fusion_result['semantic_similarity']:.2f}")
+        evidence.insert(0, f"semantic similarity {semantic_similarity:.2f}")
+        evidence.insert(1, f"authority score {authority_result.score_delta:.0f}")
+        if cross_authority_result.score_delta > 0:
+            evidence.insert(2, f"cross-source boost {cross_authority_result.score_delta:.0f}")
 
         confidence_estimate = self._confidence(detectors, trust_score, override is not None)
 
         summary = "; ".join([ev for ev in evidence[:4]]) or "No strong signals; requires manual review"
 
-        components = self._components(detectors)
-        # Only floats inside components to satisfy response schema
-        components["fusion_score"] = fusion_result["fused_score"]
+        legacy_components = self._components(detectors)
+        components = {
+            "semantic_similarity": round(semantic_component, 3),
+            "domain_reliability": round(domain_component, 3),
+            "temporal_consistency": round(temporal_component, 3),
+            "linguistic_certainty": round(linguistic_component, 3),
+            "spam_behavior_score": round(spam_component, 3),
+            "donation_suspicion": round(donation_component, 3),
+            "fusion_score": fusion_result["fused_score"],
+        }
+        components.update({f"legacy_{k}": v for k, v in legacy_components.items()})
+
         details = {
             "detectors": [asdict(det) for det in detectors],
             "domain_frequency": Counter([a.get("domain") for a in found_articles if a.get("domain")]),
-            "meta": meta or {},
+            "meta": meta,
             "fusion": fusion_result,
         }
 
