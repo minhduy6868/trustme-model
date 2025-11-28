@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 from collections import defaultdict, Counter
 import httpx
 import asyncio
@@ -19,9 +19,14 @@ import os
 from datetime import datetime
 from pathlib import Path
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
+
+import tldextract
+import unicodedata
 
 from dotenv import load_dotenv
 from trustscore.analyzers import ImageVerifier, LanguageRiskScorer, SemanticAnalyzer
+from trustscore.llm_adapter import LLMAdapter, LLMFallbackError
 from trustscore.models import ClaimPayload, TrustScoreResult
 from trustscore.reputation import ReputationClient
 from trustscore.sources import SourceAggregator
@@ -85,6 +90,77 @@ class Config:
 
 
 config = Config()
+
+
+def extract_domain(url: Optional[str]) -> Optional[str]:
+    """Extract normalized domain from a URL (including subdomains)."""
+    if not url:
+        return None
+    try:
+        parsed = tldextract.extract(url)
+        if parsed.domain and parsed.suffix:
+            return f"{parsed.domain}.{parsed.suffix}".lower()
+    except Exception:
+        pass
+    try:
+        hostname = urlparse(url if "://" in url else f"http://{url}").hostname
+        return hostname.lower() if hostname else None
+    except Exception:
+        return None
+
+
+def is_domain_whitelisted(domain: Optional[str], whitelist: List[str]) -> bool:
+    """Return True if domain matches any whitelist entry."""
+    if not domain:
+        return False
+    domain_lower = domain.lower()
+    return any(domain_lower.endswith(w.lower()) or w.lower() in domain_lower for w in whitelist)
+
+
+def _normalize_text(value: Optional[str]) -> str:
+    """Normalize text for fuzzy comparison (lowercase, remove accents/spaces)."""
+    if not value:
+        return ""
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+    return "".join(ch for ch in value.lower() if ch.isalnum())
+
+
+def match_trusted_page(author: Optional[str], trusted_sources: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Return trusted page entry if author matches a trusted page."""
+    if not author:
+        return None
+    norm_author = _normalize_text(author)
+    if not norm_author:
+        return None
+    for entry in trusted_sources:
+        if entry.get("type") != "page":
+            continue
+        name = entry.get("name") or ""
+        identifier = entry.get("identifier") or ""
+        slug = identifier.split("/")[-1] if identifier else ""
+        candidates = [
+            _normalize_text(name),
+            _normalize_text(identifier),
+            _normalize_text(slug),
+        ]
+        if any(c and (norm_author == c or norm_author in c or c in norm_author) for c in candidates):
+            return entry
+    return None
+
+
+def extract_facebook_slug(url: Optional[str]) -> Optional[str]:
+    """Extract the page slug from a Facebook URL."""
+    if not url:
+        return None
+    try:
+        parsed = urlparse(url if "://" in url else f"http://{url}")
+        parts = [p for p in parsed.path.split("/") if p]
+        if parts:
+            return parts[0]
+    except Exception:
+        return None
+    return None
 
 
 # Storage manager with Redis fallback
@@ -326,6 +402,18 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Initialize verification engines
 realtime_verifier = None
 USE_REALTIME = False
+llm_adapter = None
+
+# Initialize shared offline LLM (optional, fallback to heuristics)
+try:
+    llm_adapter = LLMAdapter()
+    logger.info("LLM adapter initialized")
+except Exception as exc:
+    reason = str(exc)
+    if isinstance(exc, LLMFallbackError):
+        reason = f"LLM fallback: {exc}"
+    logger.warning("LLM adapter disabled: %s", reason)
+    llm_adapter = None
 
 try:
     from trustscore.realtime_verifier import RealtimeVerifier
@@ -335,7 +423,7 @@ try:
         'google_factcheck': os.getenv('FACT_CHECK_API_KEY', ''),
     }
     
-    realtime_verifier = RealtimeVerifier(api_keys=api_keys)
+    realtime_verifier = RealtimeVerifier(api_keys=api_keys, llm_adapter=llm_adapter)
     logger.info("Realtime verifier initialized")
     USE_REALTIME = True
     
@@ -346,9 +434,10 @@ except ImportError as e:
 engine = TrustEngine(
     aggregator=SourceAggregator(),
     reputation_client=ReputationClient(),
-    semantic_analyzer=SemanticAnalyzer(),
-    language_scorer=LanguageRiskScorer(),
+    semantic_analyzer=SemanticAnalyzer(llm=llm_adapter),
+    language_scorer=LanguageRiskScorer(llm=llm_adapter),
     image_verifier=ImageVerifier(),
+    llm=llm_adapter,
 )
 logger.info("Legacy trust engine initialized as fallback")
 
@@ -361,6 +450,10 @@ class VerifyRequest(BaseModel):
     url: Optional[str] = Field(None, description="Source URL if available")
     language: str = Field("vi", description="Language: vi or en")
     deep_analysis: bool = Field(True, description="Enable deep analysis (slower but more accurate)")
+    author: Optional[str] = Field(None, description="Author or page name if available")
+    found_articles: Optional[List[Dict[str, Any]]] = Field(None, description="Prefilled found articles (from extension)")
+    meta: Optional[Dict[str, Any]] = Field(None, description="Additional metadata from client")
+    image_urls: Optional[List[str]] = Field(None, description="Image URLs attached to the content")
     
     @validator('language')
     def validate_language(cls, v):
@@ -571,6 +664,97 @@ async def verify_simple(payload: ClaimPayload):
         )
 
 
+async def finalize_whitelist_result(
+    job_id: str,
+    request: VerifyRequest,
+    domain: str,
+    start_time: float,
+    content_hash: Optional[str],
+    reason: str = "domain_whitelist",
+    trusted_page: Optional[Dict[str, Any]] = None,
+    use_realtime: bool = True
+):
+    """
+    Short-circuit pipeline for whitelisted domains: skip crawler and return authority-first result.
+    """
+    meta_payload = {
+        "domain": domain,
+        "url": request.url,
+        "domain_frequency": {domain: 1},
+        "first_seen": datetime.utcnow().isoformat(),
+        "author": request.author,
+        "trusted_page": trusted_page,
+    }
+    crawl_stats = {
+        "skipped": True,
+        "reason": reason,
+        "domain": domain,
+        "trusted_page": trusted_page,
+    }
+
+    trust_score = 100.0
+    verdict = "verified"
+    if reason == "trusted_page" and trusted_page:
+        summary = f"Trusted Facebook page ({trusted_page.get('name') or request.author}) in whitelist; crawler skipped."
+    else:
+        summary = f"Trusted source domain ({domain}) in whitelist; crawler skipped."
+    components: Dict[str, float] = {"domain_reliability": 1.0}
+    flags: List[str] = ["authority-whitelist"]
+    evidence_list: List[str] = [
+        f"Domain in whitelist: {domain}"
+        if reason != "trusted_page"
+        else f"Trusted page: {trusted_page.get('identifier') or request.author}"
+    ]
+    confidence_estimate = None
+    override_reason = "authority-whitelist"
+    details: Dict[str, Any] = {"meta": meta_payload, "fast_path": reason}
+    is_donation_post = False
+
+    if USE_REALTIME and realtime_verifier and use_realtime:
+        verification_result = await realtime_verifier.verify(
+            original_text=request.text,
+            found_articles=[],
+            language=request.language,
+            meta=meta_payload
+        )
+        trust_score = verification_result.get("trust_score", trust_score)
+        verdict = verification_result.get("verdict", verdict)
+        summary = verification_result.get("explanation", summary)
+        components = verification_result.get("components", components) or components
+        flags = verification_result.get("flags", flags) or flags
+        evidence_list = verification_result.get("evidence", evidence_list) or evidence_list
+        confidence_estimate = verification_result.get("confidence_estimate", confidence_estimate)
+        override_reason = verification_result.get("override_reason", override_reason) or override_reason
+        details = verification_result.get("details", details) or details
+        is_donation_post = verification_result.get("is_donation_post", is_donation_post)
+
+    if isinstance(details, dict):
+        details.setdefault("meta", meta_payload)
+        details["fast_path"] = reason
+    else:
+        details = {"meta": meta_payload, "fast_path": reason}
+
+    await finalize_job(
+        job_id,
+        trust_score=trust_score,
+        verdict=verdict,
+        summary=summary,
+        evidence_count=len(evidence_list) or 1,
+        crawl_stats=crawl_stats,
+        components=components,
+        alternatives=[],
+        is_donation_post=is_donation_post,
+        processing_time=time.time() - start_time,
+        success=True,
+        content_hash=content_hash,
+        flags=flags,
+        evidence=evidence_list,
+        confidence_estimate=confidence_estimate,
+        override_reason=override_reason,
+        details=details
+    )
+
+
 # Background processing
 async def process_verification(job_id: str, request: VerifyRequest, content_hash: str = None):
     """Background task for verification processing"""
@@ -579,6 +763,57 @@ async def process_verification(job_id: str, request: VerifyRequest, content_hash
     
     try:
         logger.info(f"[{job_id}] Starting verification")
+
+        domain_whitelist = DATASETS.get("domain_whitelist", [])
+        trusted_sources = DATASETS.get("trusted_sources", [])
+        logger.warning(f"[{job_id}] Debug input url={request.url}, author={request.author}")
+        request_domain = extract_domain(request.url)
+        if not request_domain and request.found_articles:
+            request_domain = extract_domain(request.found_articles[0].get("url"))
+        if not request_domain and request.meta and isinstance(request.meta, dict):
+            meta_domain = request.meta.get("domain") or next(iter((request.meta.get("domain_frequency") or {}).keys()), None)
+            request_domain = extract_domain(meta_domain)
+
+        # Precompute trusted Facebook page match
+        slug = extract_facebook_slug(request.url) or (
+            extract_facebook_slug(request.found_articles[0].get("url")) if request.found_articles else None
+        )
+        trusted_pages = [s for s in trusted_sources if s.get("type") == "page"]
+        page_hit = match_trusted_page(request.author, trusted_sources) or match_trusted_page(slug, trusted_sources)
+        logger.warning(f"[{job_id}] Debug domain={request_domain}, slug={slug}, page_hit={bool(page_hit)}")
+
+        # Whitelist: domain
+        if request_domain and is_domain_whitelisted(request_domain, domain_whitelist):
+            logger.info(f"[{job_id}] Whitelisted domain detected ({request_domain}). Skipping crawler.")
+            await finalize_whitelist_result(job_id, request, request_domain, start_time, content_hash)
+            return
+
+        # Whitelist: trusted Facebook page (author or slug)
+        is_facebook_source = (
+            (request_domain and "facebook" in request_domain)
+            or ("facebook.com" in (request.url or ""))
+            or (slug is not None)
+        )
+        if is_facebook_source:
+            if page_hit:
+                logger.info(
+                    f"[{job_id}] Trusted Facebook page detected ({page_hit.get('name')}). Slug={slug}, author={request.author}"
+                )
+                await finalize_whitelist_result(
+                    job_id,
+                    request,
+                    request_domain or "facebook.com",
+                    start_time,
+                    content_hash,
+                    reason="trusted_page",
+                    trusted_page=page_hit,
+                    use_realtime=False
+                )
+                return
+            else:
+                logger.warning(
+                    f"[{job_id}] Facebook source but not trusted. author={request.author}, slug={slug}, domain={request_domain}"
+                )
         
         # Call crawler API
         logger.info(f"[{job_id}] Calling crawler API")

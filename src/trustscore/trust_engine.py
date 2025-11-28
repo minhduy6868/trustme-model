@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .analyzers import ImageVerifier, LanguageRiskScorer, SemanticAnalyzer
 from .config import get_settings
+from .llm_adapter import LLMAdapter, LLMFallbackError
 from .models import (
     AlternativeLink,
     ClaimPayload,
@@ -41,6 +43,7 @@ class TrustEngine:
     semantic_analyzer: SemanticAnalyzer
     language_scorer: LanguageRiskScorer
     image_verifier: ImageVerifier
+    llm: Optional[LLMAdapter] = None
     weights: TrustWeights = field(default_factory=TrustWeights)
     threshold: float = 0.85
 
@@ -49,8 +52,10 @@ class TrustEngine:
         self._weight_map = self.weights.as_dict()
         self._trusted_domains = {domain.lower() for domain in self._settings.trusted_domains}
         self._suspicious_domains = {domain.lower() for domain in self._settings.suspicious_domains}
+        self._llm_logs: list[dict] = []
 
     async def verify_claim(self, payload: ClaimPayload) -> TrustScoreResult:
+        self._llm_logs = []
         primary_document = payload.primary_document
         claim_text = payload.claim_text
         claim_url = (
@@ -92,15 +97,38 @@ class TrustEngine:
         )
         image_score = await self.image_verifier.score(payload.media_hashes)
 
+        llm_vectors = {"V_semantic_llm": 0.0, "V_linguistic_llm": 0.0, "V_intent_llm": 0.0}
+        if getattr(self.semantic_analyzer, "last_llm_similarity", None) is not None:
+            llm_vectors["V_semantic_llm"] = float(self.semantic_analyzer.last_llm_similarity or 0.0)
+        if getattr(self.language_scorer, "last_llm_score", None) is not None:
+            llm_vectors["V_linguistic_llm"] = float(self.language_scorer.last_llm_score or 0.0)
+
+        if self.llm:
+            try:
+                intent_label = self.llm.classify(context_text, ["scam", "spam", "legit"])
+                intent_map = {"scam": 0.1, "spam": 0.4, "legit": 0.85}
+                llm_vectors["V_intent_llm"] = intent_map.get(intent_label, 0.0)
+            except LLMFallbackError as exc:  # pragma: no cover - runtime fallback
+                self._llm_logs.append({"event": "intent-llm-fallback", "error": str(exc)[:160]})
+
         components = {
             "sources": source_score,
             "semantic": semantic_score,
             "image": image_score,
             "language": language_score,
+            **llm_vectors,
         }
         trust_score = self._combine_components(components)
         verdict = self._derive_verdict(trust_score)
         alternatives = self._build_alternatives(enriched, limit=3)
+
+        llm_logs = list(self._llm_logs)
+        if self.llm:
+            try:
+                llm_logs.extend(self.llm.logs)
+            except Exception:
+                pass
+
         return TrustScoreResult(
             trust_score=trust_score,
             verdict=verdict,
@@ -110,6 +138,7 @@ class TrustEngine:
             debug={
                 "sources": list({item.source for item in enriched}),
                 "weights": self._weight_map,
+                "llm": llm_logs,
             },
         )
 

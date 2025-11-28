@@ -1,31 +1,15 @@
 {
-  "redcross.org.vn": [
-    { "name": "Vietnam Red Cross", "account": "12010000036467", "bank": "BIDV" },
-    { "name": "Vietnam Red Cross Relief", "account": "*", "bank": "verified-official" }
+  "Uy ban Trung uong Mat tran To quoc Viet Nam": [
+    { "name": "Ban Cuu tro Trung uong (MTTQVN)", "account": "0011003571000", "bank": "Vietcombank - So giao dich" }
   ],
-  "chuthapdo.vn": [
-    { "name": "Hoi Chu Thap Do Viet Nam", "account": "12010000036467", "bank": "BIDV" }
+  "Hoi Chu Thap Do Viet Nam": [
+    { "name": "Trung uong Hoi Chu thap do VN", "account": "0051000677999", "bank": "Vietcombank - Ha Noi" },
+    { "name": "Trung uong Hoi Chu thap do VN", "account": "1260201001000", "bank": "Agribank - Hoang Quoc Viet" }
   ],
-  "unicef.org": [
-    { "name": "UNICEF Vietnam", "account": "*", "bank": "online-donation" }
+  "Bao Tuoi Tre - Tam long vang": [
+    { "name": "Quy Tam long vang (Bao Tuoi Tre)", "account": "1017378606", "bank": "Vietcombank - TP.HCM" }
   ],
-  "who.int": [
-    { "name": "WHO Solidarity", "account": "*", "bank": "online-donation" }
-  ],
-  "savethechildren.org": [
-    { "name": "Save The Children VN", "account": "*", "bank": "online-donation" }
-  ],
-  "care.org": [
-    { "name": "CARE Vietnam", "account": "*", "bank": "online-donation" }
-  ],
-  "worldvision.org": [
-    { "name": "World Vision VN", "account": "*", "bank": "online-donation" }
-  ],
-  "operation-smile.org": [
-    { "name": "Operation Smile VN", "account": "0071000899999", "bank": "Vietcombank" },
-    { "name": "Operation Smile VN", "account": "*", "bank": "online-donation" }
-  ],
-  "vava.org.vn": [
-    { "name": "Hoi nan nhan chat doc da cam", "account": "*", "bank": "official-fallback" }
+  "Bao Thanh Nien": [
+    { "name": "Bao Thanh Nien", "account": "117000011235", "bank": "VietinBank - CN3 TP.HCM" }
   ]
 }

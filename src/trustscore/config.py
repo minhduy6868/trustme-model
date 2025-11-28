@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     openpagerank_api_key: str | None = None
     # Default to multilingual LaBSE for stronger cross-lingual semantic matching
     semantic_model_name: str = "sentence-transformers/LaBSE"
+    embed_model_name: str = "sentence-transformers/LaBSE"
+    llm_model_path: str | None = None
+    llm_timeout: float = 12.0
     trusted_domains: list[str] = Field(default_factory=list)
     suspicious_domains: list[str] = Field(default_factory=list)
 

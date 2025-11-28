@@ -1,7 +1,7 @@
 # Core requirements
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
-httpx>=0.26.0
+httpx[brotli,http2,socks]>=0.28.1
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
@@ -11,6 +11,8 @@ sentence-transformers>=2.2.2
 transformers>=4.35.0  # For NLI model
 torch>=2.1.0  # For transformers
 sentencepiece>=0.1.99  # For tokenizers
+llama_cpp_python>=0.2.76
+numpy>=1.26.4
 
 # Data sources
 duckduckgo-search>=4.0.0
@@ -22,3 +24,5 @@ python-dateutil>=2.8.2
 # Redis (optional but recommended)
 redis>=5.0.1
 
+# Testing
+pytest-asyncio>=0.23.7

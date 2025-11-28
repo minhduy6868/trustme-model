@@ -193,6 +193,15 @@ def _normalize_donation(datasets: Dict[str, Any]) -> None:
     bank_patterns = donation_data.get("bank_account_patterns", []) if isinstance(donation_data, dict) else []
     scam_patterns = donation_data.get("scam_patterns", []) if isinstance(donation_data, dict) else []
     official_accounts = donation_data.get("official_accounts", {}) if isinstance(donation_data, dict) else {}
+    # Merge external official accounts dataset if provided
+    extra_official = datasets.get("donation_official_accounts", {})
+    if isinstance(extra_official, dict) and extra_official:
+        merged_from.append("donation_official_accounts")
+        for org, accounts in extra_official.items():
+            current = official_accounts.get(org, [])
+            if isinstance(accounts, list):
+                current.extend(accounts)
+                official_accounts[org] = current
 
     for key, store in [
         ("donation_indicators", indicators),

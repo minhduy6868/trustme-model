@@ -33,6 +33,12 @@ Main API that orchestrates fact-checking:
 - Health checks
 - Graceful shutdown
 
+### Offline LLM Hybrid (optional)
+
+- `trustscore/llm_adapter.py` runs llama.cpp (GGUF) + sentence-transformers fully offline.
+- Adds zero-shot linguistic/intent scores and LLM embeddings to fusion (`V_semantic_llm`, `V_linguistic_llm`, `V_intent_llm`).
+- On any load/timeout error the system falls back to legacy heuristics automatically and records `logs['llm']`.
+
 ## Installation
 
 ### Basic:
@@ -67,6 +73,11 @@ DATA_DIR=./trustme-model/data
 
 # Optional: Google Fact Check API
 FACT_CHECK_API_KEY=your_key_here
+
+# Optional: Offline LLM (llama.cpp)
+LLM_MODEL_PATH=/path/to/model.gguf
+EMBED_MODEL_NAME=sentence-transformers/LaBSE
+LLM_TIMEOUT=12.0
 ```
 
 ## Run

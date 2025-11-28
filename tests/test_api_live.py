@@ -80,4 +80,6 @@ def test_result_endpoint_not_found(client):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+import pytest
 
+pytest.skip("Skipping live API tests in unit run", allow_module_level=True)

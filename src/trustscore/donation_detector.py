@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+from .llm_adapter import LLMAdapter, LLMFallbackError
+
 
 def load_official_accounts() -> Dict[str, Any]:
     """Load official bank accounts database"""
@@ -173,7 +175,12 @@ class DonationDetector:
         }
     
     @staticmethod
-    def check_legitimacy(text: str, found_articles: List[Dict[str, Any]], language: str = 'vi') -> Dict[str, Any]:
+    def check_legitimacy(
+        text: str,
+        found_articles: List[Dict[str, Any]],
+        language: str = 'vi',
+        llm: Optional[LLMAdapter] = None,
+    ) -> Dict[str, Any]:
         """Check if donation post is legitimate"""
         
         # 1. Check emotional manipulation
@@ -220,6 +227,20 @@ class DonationDetector:
         
         has_personal_account = len(bank_accounts) > 0 and not has_legitimate_org
         has_fake_account = account_verification.get('has_fake_accounts', False)
+
+        llm_intent = None
+        llm_label = None
+        if llm:
+            try:
+                llm_label = llm.classify(text, ["scam", "spam", "legit"])
+                if llm_label == "scam":
+                    llm_intent = "scam"
+                elif llm_label == "spam":
+                    llm_intent = "spam"
+                else:
+                    llm_intent = "legit"
+            except LLMFallbackError:
+                llm_intent = None
         
         # 5. Check if verified by news
         verified_by_news = False
@@ -269,6 +290,11 @@ class DonationDetector:
         
         if verified_by_gov and not has_fake_account:
             risk_score = max(0, risk_score - 40)
+
+        if llm_intent == "scam":
+            risk_score += 25
+        elif llm_intent == "spam":
+            risk_score += 15
         
         # NEW: Reduce risk if has verifiable information (individual case)
         if legitimacy_check and legitimacy_check.get('has_verifiable_info'):
@@ -297,13 +323,15 @@ class DonationDetector:
                 'urgency': has_urgency,
                 'personal_account_only': has_personal_account,
                 'no_verification': not verified_by_news and not verified_by_gov,
-                'fake_account_detected': has_fake_account
+                'fake_account_detected': has_fake_account,
+                'llm_intent': llm_intent
             },
             'legitimacy': {
                 'has_legitimate_org': has_legitimate_org,
                 'mentioned_organization': mentioned_org,
                 'verified_by_news': verified_by_news,
-                'verified_by_gov': verified_by_gov
+                'verified_by_gov': verified_by_gov,
+                'llm_label': llm_label
             },
             'account_verification': account_verification,
             'individual_legitimacy': legitimacy_check,  # NEW: For individual cases

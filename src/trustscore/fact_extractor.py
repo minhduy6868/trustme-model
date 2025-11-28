@@ -1,16 +1,43 @@
 """
 Fact Extraction and Verification
-Extract specific claims (numbers, dates, names, places) and verify them
+Extract specific claims (numbers, dates, names, places) and verify them.
+Augmented with optional offline LLM extraction that gracefully falls back to
+legacy heuristics.
 """
 
+import json
 import re
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timedelta
 import calendar
+
+from .llm_adapter import LLMAdapter, LLMFallbackError
 
 
 class FactExtractor:
     """Extract factual claims from text"""
+
+    @staticmethod
+    def extract_verifiable_claims(text: str, llm: Optional[LLMAdapter] = None) -> List[str]:
+        """
+        Try LLM JSON extraction: "Extract all verifiable factual claims...".
+        Falls back to sentence splitting + heuristic numeric/date snippets.
+        """
+        if llm and text:
+            prompt = (
+                "Extract all verifiable factual claims from this article. "
+                "Return JSON array only."
+            )
+            try:
+                raw = llm.generate(f"{prompt}\n\n{text[:4000]}")
+                claims = json.loads(raw)
+                if isinstance(claims, list):
+                    return [str(c).strip() for c in claims if str(c).strip()]
+            except (LLMFallbackError, json.JSONDecodeError, TypeError):
+                pass
+
+        sentences = [s.strip() for s in re.split(r"[\.!?]\s+", text) if len(s.strip()) > 20]
+        return sentences[:6]
     
     @staticmethod
     def extract_numbers(text: str) -> List[Dict[str, Any]]:
@@ -288,4 +315,3 @@ class FactVerifier:
                 'names': names_verification
             }
         }
-

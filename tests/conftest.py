@@ -1,21 +1,15 @@
-"""
-Pytest configuration and fixtures
-"""
-
-import pytest
 import sys
 from pathlib import Path
-
-# Add src to path
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
+import os
 
 
-@pytest.fixture(scope="session")
-def test_config():
-    """Test configuration"""
-    return {
-        "crawler_url": "http://localhost:8000",
-        "test_timeout": 30
-    }
+# Ensure project src is on path for imports in tests
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+for p in (ROOT, SRC):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
+# Lighten test env: disable LLM model load and use smaller embedding if needed
+os.environ.setdefault("LLM_MODEL_PATH", "")
+os.environ.setdefault("SEMANTIC_MODEL_NAME", "sentence-transformers/paraphrase-MiniLM-L3-v2")

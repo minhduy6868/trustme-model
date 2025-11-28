@@ -106,8 +106,10 @@ class MultiVectorFusion:
         detectors: list[Any],
         domain_whitelist: list[str],
         domain_blacklist: list[str],
+        llm_vectors: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
         det_map = {d.name: d for d in detectors}
+        llm_vectors = llm_vectors or {}
 
         # Semantic vector
         claims = _split_sentences(original_text)
@@ -145,6 +147,11 @@ class MultiVectorFusion:
                 "anomaly": round(anomaly_component, 3),
             },
             "fused_score": round(fused_score, 3),
+            "llm_vectors": {
+                "V_semantic_llm": round(llm_vectors.get("V_semantic_llm", 0.0), 3),
+                "V_linguistic_llm": round(llm_vectors.get("V_linguistic_llm", 0.0), 3),
+                "V_intent_llm": round(llm_vectors.get("V_intent_llm", 0.0), 3),
+            },
         }
 
     @staticmethod
